@@ -96,10 +96,18 @@ fn convert(e: &XmlElement, depth: usize) -> Element {
     } else {
         vec![]
     };
-    Element { namespace: Some(e.namespace_uri.clone()).filter(|s| !s.is_empty()), name: e.name.clone(), attributes, children }
+    Element {
+        namespace: Some(e.namespace_uri.clone()).filter(|s| !s.is_empty()),
+        name: e.name.clone(),
+        attributes,
+        children,
+    }
 }
 
 pub fn parse(data: &[u8]) -> Result<Element, String> {
     let node = XmlNode::decode(data).map_err(|e| format!("invalid protobuf XML: {e}"))?;
-    node.element.as_ref().map(|e| convert(e, 0)).ok_or_else(|| "protobuf XML has no root element".into())
+    node.element
+        .as_ref()
+        .map(|e| convert(e, 0))
+        .ok_or_else(|| "protobuf XML has no root element".into())
 }

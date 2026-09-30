@@ -65,5 +65,9 @@ pub fn parse_certificate(der_bytes: &[u8]) -> Result<ParsedCert, CertError> {
         public_key_bits: bits,
         public_key_sha256: Sha256Digest(Sha256::digest(&spki_der).into()),
     };
-    Ok(ParsedCert { der: der_bytes.to_vec(), spki_der, info })
+    Ok(ParsedCert {
+        der: der_bytes.to_vec(),
+        spki_der,
+        info,
+    })
 }

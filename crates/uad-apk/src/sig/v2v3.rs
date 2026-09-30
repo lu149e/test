@@ -61,7 +61,13 @@ pub fn signature_algorithm(id: u32) -> Option<SigAlgorithm> {
         0x0425 => ("VERITY_DSA_WITH_SHA256", Dsa, Sha256, VerityChunkedSha256),
         _ => return None,
     };
-    Some(SigAlgorithm { id, name, scheme, digest, content })
+    Some(SigAlgorithm {
+        id,
+        name,
+        scheme,
+        digest,
+        content,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -108,7 +114,10 @@ impl<'a> Lp<'a> {
     }
     fn lp(&mut self) -> Result<&'a [u8], String> {
         let len = self.u32()? as usize;
-        let b = self.d.get(self.p..self.p.checked_add(len).ok_or("overflow")?).ok_or_else(|| format!("length-prefixed field of {len} bytes exceeds buffer"))?;
+        let b = self
+            .d
+            .get(self.p..self.p.checked_add(len).ok_or("overflow")?)
+            .ok_or_else(|| format!("length-prefixed field of {len} bytes exceeds buffer"))?;
         self.p += len;
         Ok(b)
     }
@@ -341,7 +350,11 @@ fn parse_and_verify_signer(raw: &[u8], v3: bool) -> ParsedSigner {
     if let Err(e) = res {
         report.errors.push(e);
     }
-    ParsedSigner { report, digests, additional_attrs }
+    ParsedSigner {
+        report,
+        digests,
+        additional_attrs,
+    }
 }
 
 /// Verifies a v3 proof-of-rotation lineage; returns certificates oldest → newest.
@@ -384,20 +397,28 @@ fn verify_lineage(attr: &[u8]) -> Result<Vec<ParsedCert>, String> {
 }
 
 /// Verifies one scheme block (`V2_BLOCK_ID`, `V3_BLOCK_ID` or `V31_BLOCK_ID`).
+/// Additional attributes of each signer, as (id, value) pairs.
+pub type SignerAttributes = Vec<Vec<(u32, Vec<u8>)>>;
+
 pub fn verify_block(
     f: &mut File,
     layout: &ZipLayout,
     block_id: u32,
     value: &[u8],
     digest_cache: &mut HashMap<ContentDigestAlg, Vec<u8>>,
-) -> (SchemeReport, Vec<Vec<(u32, Vec<u8>)>>) {
+) -> (SchemeReport, SignerAttributes) {
     let v3 = block_id != V2_BLOCK_ID;
     let scheme = match block_id {
         V2_BLOCK_ID => "v2",
         V3_BLOCK_ID => "v3",
         _ => "v3.1",
     };
-    let mut report = SchemeReport { scheme: scheme.into(), verified: false, signers: vec![], errors: vec![] };
+    let mut report = SchemeReport {
+        scheme: scheme.into(),
+        verified: false,
+        signers: vec![],
+        errors: vec![],
+    };
     let mut attrs_per_signer = Vec::new();
     let signers = match Lp::new(value).lp_seq() {
         Ok(s) if !s.is_empty() => s,
@@ -411,7 +432,11 @@ pub fn verify_block(
         }
     };
     for raw in signers {
-        let ParsedSigner { report: mut sr, digests, additional_attrs } = parse_and_verify_signer(raw, v3);
+        let ParsedSigner {
+            report: mut sr,
+            digests,
+            additional_attrs,
+        } = parse_and_verify_signer(raw, v3);
         if sr.errors.is_empty() {
             let needed: BTreeSet<_> = digests.iter().map(|(a, _)| *a).filter(|a| !digest_cache.contains_key(a)).collect();
             if !needed.is_empty() {

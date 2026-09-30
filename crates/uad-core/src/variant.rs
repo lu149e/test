@@ -142,10 +142,18 @@ pub enum VariantKind {
     /// Original standalone APK containing native code for every ABI the app ships (or none).
     UniversalApk,
     /// Original standalone APK restricted to specific ABIs.
-    StandaloneApk { abis: Vec<Abi> },
+    StandaloneApk {
+        abis: Vec<Abi>,
+    },
     BaseApk,
-    ConfigSplit { module: Option<String>, dimension: SplitDimension, split: String },
-    FeatureSplit { module: String },
+    ConfigSplit {
+        module: Option<String>,
+        dimension: SplitDimension,
+        split: String,
+    },
+    FeatureSplit {
+        module: String,
+    },
     /// Universal APK generated locally from an AAB with bundletool. Never an original file:
     /// it carries a signature from the local signing key, not the developer's.
     GeneratedUniversalApk,
@@ -162,7 +170,11 @@ impl VariantKind {
     pub fn from_split_name(split: &str) -> VariantKind {
         let parsed = parse_split_name(split);
         match (parsed.module, parsed.dimension) {
-            (module, Some(dimension)) => VariantKind::ConfigSplit { module, dimension, split: split.to_string() },
+            (module, Some(dimension)) => VariantKind::ConfigSplit {
+                module,
+                dimension,
+                split: split.to_string(),
+            },
             (Some(module), None) => VariantKind::FeatureSplit { module },
             (None, None) => VariantKind::BaseApk,
         }
@@ -212,15 +224,27 @@ mod tests {
     fn split_names() {
         assert_eq!(
             VariantKind::from_split_name("config.arm64_v8a"),
-            VariantKind::ConfigSplit { module: None, dimension: SplitDimension::Abi(Abi::Arm64V8a), split: "config.arm64_v8a".into() }
+            VariantKind::ConfigSplit {
+                module: None,
+                dimension: SplitDimension::Abi(Abi::Arm64V8a),
+                split: "config.arm64_v8a".into()
+            }
         );
         assert_eq!(
             VariantKind::from_split_name("config.xxhdpi"),
-            VariantKind::ConfigSplit { module: None, dimension: SplitDimension::Density("xxhdpi".into()), split: "config.xxhdpi".into() }
+            VariantKind::ConfigSplit {
+                module: None,
+                dimension: SplitDimension::Density("xxhdpi".into()),
+                split: "config.xxhdpi".into()
+            }
         );
         assert_eq!(
             VariantKind::from_split_name("config.es"),
-            VariantKind::ConfigSplit { module: None, dimension: SplitDimension::Language("es".into()), split: "config.es".into() }
+            VariantKind::ConfigSplit {
+                module: None,
+                dimension: SplitDimension::Language("es".into()),
+                split: "config.es".into()
+            }
         );
         assert_eq!(
             VariantKind::from_split_name("camera.config.x86_64"),
@@ -230,10 +254,16 @@ mod tests {
                 split: "camera.config.x86_64".into()
             }
         );
-        assert_eq!(VariantKind::from_split_name("camera"), VariantKind::FeatureSplit { module: "camera".into() });
+        assert_eq!(
+            VariantKind::from_split_name("camera"),
+            VariantKind::FeatureSplit { module: "camera".into() }
+        );
         assert!(matches!(
             VariantKind::from_split_name("config.astc"),
-            VariantKind::ConfigSplit { dimension: SplitDimension::Other(_), .. }
+            VariantKind::ConfigSplit {
+                dimension: SplitDimension::Other(_),
+                ..
+            }
         ));
     }
 

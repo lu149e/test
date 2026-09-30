@@ -55,7 +55,11 @@ struct Candidate {
 
 impl LocalProvider {
     pub fn new(enabled: bool, inbox: PathBuf, cache_dir: &Path) -> Self {
-        Self { enabled, inbox, extract_dir: cache_dir.join("local-extracted") }
+        Self {
+            enabled,
+            inbox,
+            extract_dir: cache_dir.join("local-extracted"),
+        }
     }
 
     pub fn inbox(&self) -> &Path {
@@ -80,7 +84,11 @@ impl LocalProvider {
                     if let Ok((container, m)) = uad_apk::peek_manifest(&path) {
                         if m.package == pkg {
                             out.push(Candidate {
-                                group: if m.split.is_some() { format!("loose-{}", m.version_code) } else { path.display().to_string() },
+                                group: if m.split.is_some() {
+                                    format!("loose-{}", m.version_code)
+                                } else {
+                                    path.display().to_string()
+                                },
                                 path,
                                 container,
                                 version_code: m.version_code,
@@ -133,7 +141,11 @@ impl LocalProvider {
                     return Err("encrypted container (unsupported)".into());
                 }
                 // Flatten names; never trust archive paths (zip-slip).
-                let base = Path::new(&name).file_name().and_then(|n| n.to_str()).unwrap_or("inner.apk").replace("..", "_");
+                let base = Path::new(&name)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("inner.apk")
+                    .replace("..", "_");
                 let target = dir.join(format!("{i:03}-{base}"));
                 let mut out = std::fs::File::create(&target).map_err(|e| e.to_string())?;
                 let copied = std::io::copy(&mut (&mut e).take(MAX_INNER_APK), &mut out).map_err(|e| e.to_string())?;
@@ -175,8 +187,14 @@ impl Provider for LocalProvider {
 
     async fn discover(&self, req: &DiscoveryRequest) -> Result<Discovery, ProviderError> {
         let pkg = req.package.as_str().to_string();
-        let this = LocalProvider { enabled: self.enabled, inbox: self.inbox.clone(), extract_dir: self.extract_dir.clone() };
-        let cands = tokio::task::spawn_blocking(move || this.scan(&pkg)).await.map_err(|e| ProviderError::Other(e.to_string()))??;
+        let this = LocalProvider {
+            enabled: self.enabled,
+            inbox: self.inbox.clone(),
+            extract_dir: self.extract_dir.clone(),
+        };
+        let cands = tokio::task::spawn_blocking(move || this.scan(&pkg))
+            .await
+            .map_err(|e| ProviderError::Other(e.to_string()))??;
         let target_vc = match req.version_code {
             Some(v) => v,
             None => cands.iter().map(|c| c.version_code).max().ok_or(ProviderError::NotFound)?,
@@ -259,7 +277,12 @@ mod tests {
         }
         std::fs::write(inbox.path().join("junk.apk"), b"junk").unwrap();
         let p = LocalProvider::new(true, inbox.path().to_path_buf(), cache.path());
-        let req = DiscoveryRequest { package: PackageName::new("com.uad.fixture").unwrap(), version_code: None, abis: vec![], locale: None };
+        let req = DiscoveryRequest {
+            package: PackageName::new("com.uad.fixture").unwrap(),
+            version_code: None,
+            abis: vec![],
+            locale: None,
+        };
         let d = p.discover(&req).await.unwrap();
         let layouts: Vec<OfferLayout> = d.offers.iter().map(|o| o.layout).collect();
         assert!(layouts.contains(&OfferLayout::AppBundle), "{layouts:?}");
@@ -270,7 +293,10 @@ mod tests {
         // zip-slip entry stayed inside the extraction directory
         assert!(!cache.path().parent().unwrap().join("evil.apk").exists());
 
-        let req = DiscoveryRequest { package: PackageName::new("com.other.app").unwrap(), ..req };
+        let req = DiscoveryRequest {
+            package: PackageName::new("com.other.app").unwrap(),
+            ..req
+        };
         assert!(matches!(p.discover(&req).await, Err(ProviderError::NotFound)));
     }
 }

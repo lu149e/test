@@ -57,7 +57,11 @@ pub struct Check {
 
 impl Check {
     pub fn new(name: &str, status: CheckStatus, detail: impl Into<String>) -> Self {
-        Self { name: name.into(), status, detail: detail.into() }
+        Self {
+            name: name.into(),
+            status,
+            detail: detail.into(),
+        }
     }
 }
 

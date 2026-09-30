@@ -18,8 +18,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use uad_core::{
-    Abi, AppMetadata, Availability, Discovery, DiscoveryRequest, ExpectedDigests, FileRole, FileSource, KnownVariant, Offer, OfferLayout,
-    Provider, ProviderError, ProviderInfo, ProviderKind, RemoteFile, Sha256Digest, TrustAnchor,
+    Abi, AppMetadata, Availability, Discovery, DiscoveryRequest, ExpectedDigests, FileRole, FileSource, KnownVariant, Offer, OfferLayout, Provider,
+    ProviderError, ProviderInfo, ProviderKind, RemoteFile, Sha256Digest, TrustAnchor,
 };
 
 /// Signing-certificate fingerprint of the official https://f-droid.org/repo repository.
@@ -57,7 +57,13 @@ fn default_refresh() -> u64 {
 
 impl Default for FdroidConfig {
     fn default() -> Self {
-        Self { enabled: true, repo_url: default_repo(), fingerprint: default_fp(), refresh_minutes: default_refresh(), include_prereleases: false }
+        Self {
+            enabled: true,
+            repo_url: default_repo(),
+            fingerprint: default_fp(),
+            refresh_minutes: default_refresh(),
+            include_prereleases: false,
+        }
     }
 }
 
@@ -208,7 +214,12 @@ impl CompactIndex {
                     })
                     .collect();
                 versions.sort_by(|a, b| b.version_code.cmp(&a.version_code));
-                let icon = p.metadata.icon.get("en-US").or_else(|| p.metadata.icon.values().next()).map(|f| f.name.clone());
+                let icon = p
+                    .metadata
+                    .icon
+                    .get("en-US")
+                    .or_else(|| p.metadata.icon.values().next())
+                    .map(|f| f.name.clone());
                 (
                     id,
                     CompactPackage {
@@ -222,7 +233,11 @@ impl CompactIndex {
                 )
             })
             .collect();
-        Self { index_sha256, entry_timestamp, packages }
+        Self {
+            index_sha256,
+            entry_timestamp,
+            packages,
+        }
     }
 }
 
@@ -240,7 +255,15 @@ pub struct FdroidProvider {
 
 impl FdroidProvider {
     pub fn new(cfg: FdroidConfig, cache_dir: PathBuf) -> Self {
-        Self { cfg, cache_dir, client: http::client(), state: Mutex::new(State { index: None, last_check: None }) }
+        Self {
+            cfg,
+            cache_dir,
+            client: http::client(),
+            state: Mutex::new(State {
+                index: None,
+                last_check: None,
+            }),
+        }
     }
 
     fn repo(&self) -> &str {
@@ -256,7 +279,9 @@ impl FdroidProvider {
     /// Returns a verified index, refreshing it when stale.
     pub async fn index(&self) -> Result<Arc<CompactIndex>, ProviderError> {
         let mut st = self.state.lock().await;
-        let fresh = st.last_check.is_some_and(|t| t.elapsed() < Duration::from_secs(self.cfg.refresh_minutes * 60));
+        let fresh = st
+            .last_check
+            .is_some_and(|t| t.elapsed() < Duration::from_secs(self.cfg.refresh_minutes * 60));
         if fresh {
             if let Some(i) = &st.index {
                 return Ok(i.clone());
@@ -291,7 +316,9 @@ impl FdroidProvider {
     }
 
     async fn load_cached(&self, dir: &std::path::Path) -> Result<CompactIndex, ProviderError> {
-        let data = tokio::fs::read(dir.join("compact.json")).await.map_err(|e| ProviderError::Other(e.to_string()))?;
+        let data = tokio::fs::read(dir.join("compact.json"))
+            .await
+            .map_err(|e| ProviderError::Other(e.to_string()))?;
         serde_json::from_slice(&data).map_err(|e| ProviderError::Other(e.to_string()))
     }
 
@@ -318,7 +345,8 @@ impl FdroidProvider {
                 return Ok(c.clone());
             }
         }
-        let expected = Sha256Digest::parse_flexible(&entry.index.sha256).ok_or_else(|| ProviderError::Protocol("bad index sha256 in entry.json".into()))?;
+        let expected =
+            Sha256Digest::parse_flexible(&entry.index.sha256).ok_or_else(|| ProviderError::Protocol("bad index sha256 in entry.json".into()))?;
         let index_path = dir.join("index-v2.json");
         let url = format!("{}/{}", self.repo(), entry.index.name.trim_start_matches('/'));
         tracing::info!("downloading F-Droid index ({} bytes)", entry.index.size);
@@ -328,10 +356,12 @@ impl FdroidProvider {
         let compact_path = dir.join("compact.json");
         let idx = tokio::task::spawn_blocking(move || -> Result<CompactIndex, ProviderError> {
             let f = std::fs::File::open(&index_path).map_err(|e| ProviderError::Other(e.to_string()))?;
-            let v2: IndexV2 = serde_json::from_reader(std::io::BufReader::new(f)).map_err(|e| ProviderError::Protocol(format!("index-v2.json: {e}")))?;
+            let v2: IndexV2 =
+                serde_json::from_reader(std::io::BufReader::new(f)).map_err(|e| ProviderError::Protocol(format!("index-v2.json: {e}")))?;
             let idx = CompactIndex::from_v2(v2, sha, ts);
             let tmp = compact_path.with_extension("tmp");
-            std::fs::write(&tmp, serde_json::to_vec(&idx).map_err(|e| ProviderError::Other(e.to_string()))?).map_err(|e| ProviderError::Other(e.to_string()))?;
+            std::fs::write(&tmp, serde_json::to_vec(&idx).map_err(|e| ProviderError::Other(e.to_string()))?)
+                .map_err(|e| ProviderError::Other(e.to_string()))?;
             std::fs::rename(&tmp, &compact_path).map_err(|e| ProviderError::Other(e.to_string()))?;
             let _ = std::fs::remove_file(&index_path);
             Ok(idx)
@@ -343,7 +373,11 @@ impl FdroidProvider {
 
     fn offer_for(&self, pkg: &str, p: &CompactPackage, v: &CompactVersion) -> Offer {
         let abis: Vec<Abi> = v.nativecode.iter().filter_map(|a| Abi::parse(a)).collect();
-        let layout = if abis.len() == 1 { OfferLayout::AbiSpecificApk } else { OfferLayout::UniversalApk };
+        let layout = if abis.len() == 1 {
+            OfferLayout::AbiSpecificApk
+        } else {
+            OfferLayout::UniversalApk
+        };
         let file_name = v.file.trim_start_matches('/').to_string();
         let signers: Vec<Sha256Digest> = v.signers.iter().filter_map(|s| Sha256Digest::parse_flexible(s)).collect();
         Offer {
@@ -355,19 +389,38 @@ impl FdroidProvider {
             files: vec![RemoteFile {
                 role: FileRole::Standalone,
                 file_name: file_name.clone(),
-                source: FileSource::Http { url: format!("{}/{}", self.repo(), file_name), headers: vec![], url_is_sensitive: false },
+                source: FileSource::Http {
+                    url: format!("{}/{}", self.repo(), file_name),
+                    headers: vec![],
+                    url_is_sensitive: false,
+                },
                 size: v.size,
-                expected: ExpectedDigests { sha256: Sha256Digest::parse_flexible(&v.sha256), sha1: None },
+                expected: ExpectedDigests {
+                    sha256: Sha256Digest::parse_flexible(&v.sha256),
+                    sha1: None,
+                },
             }],
             abis,
             min_sdk: v.min_sdk,
             trust: Some(TrustAnchor {
                 signer_cert_sha256: signers,
-                asserted_by: format!("F-Droid signed index ({}/entry.jar, repo key {})", self.repo(), &self.cfg.fingerprint[..16]),
+                asserted_by: format!(
+                    "F-Droid signed index ({}/entry.jar, repo key {})",
+                    self.repo(),
+                    &self.cfg.fingerprint[..16]
+                ),
                 authenticated: true,
             }),
             device_profile: None,
-            channel: format!("F-Droid repository {}{}", self.repo(), if p.preferred_signer.is_some() { " (preferred signer enforced)" } else { "" }),
+            channel: format!(
+                "F-Droid repository {}{}",
+                self.repo(),
+                if p.preferred_signer.is_some() {
+                    " (preferred signer enforced)"
+                } else {
+                    ""
+                }
+            ),
         }
     }
 }
@@ -376,19 +429,31 @@ impl FdroidProvider {
 fn verify_entry_jar(path: &std::path::Path, fingerprint: &str) -> Result<EntryJson, ProviderError> {
     let mut f = std::fs::File::open(path).map_err(|e| ProviderError::Other(e.to_string()))?;
     let layout = uad_apk::zipinfo::ZipLayout::read(&mut f).map_err(|e| ProviderError::Integrity(format!("entry.jar: {e}")))?;
-    let mut zip = zip::ZipArchive::new(std::io::BufReader::new(std::fs::File::open(path).map_err(|e| ProviderError::Other(e.to_string()))?))
-        .map_err(|e| ProviderError::Integrity(format!("entry.jar: {e}")))?;
+    let mut zip = zip::ZipArchive::new(std::io::BufReader::new(
+        std::fs::File::open(path).map_err(|e| ProviderError::Other(e.to_string()))?,
+    ))
+    .map_err(|e| ProviderError::Integrity(format!("entry.jar: {e}")))?;
     let rep = uad_apk::sig::v1::verify_jar(&mut zip, &layout.entry_names);
     if !rep.verified {
         return Err(ProviderError::Integrity(format!("entry.jar signature invalid: {:?}", rep.errors)));
     }
-    let signer = rep.signers.first().and_then(|s| s.certificate.as_ref()).map(|c| c.sha256.to_hex()).unwrap_or_default();
+    let signer = rep
+        .signers
+        .first()
+        .and_then(|s| s.certificate.as_ref())
+        .map(|c| c.sha256.to_hex())
+        .unwrap_or_default();
     if signer != fingerprint {
-        return Err(ProviderError::Integrity(format!("entry.jar signed by {signer}, expected pinned repository key {fingerprint}")));
+        return Err(ProviderError::Integrity(format!(
+            "entry.jar signed by {signer}, expected pinned repository key {fingerprint}"
+        )));
     }
     let mut data = Vec::new();
-    std::io::Read::read_to_end(&mut zip.by_name("entry.json").map_err(|e| ProviderError::Protocol(e.to_string()))?, &mut data)
-        .map_err(|e| ProviderError::Other(e.to_string()))?;
+    std::io::Read::read_to_end(
+        &mut zip.by_name("entry.json").map_err(|e| ProviderError::Protocol(e.to_string()))?,
+        &mut data,
+    )
+    .map_err(|e| ProviderError::Other(e.to_string()))?;
     serde_json::from_slice(&data).map_err(|e| ProviderError::Protocol(format!("entry.json: {e}")))
 }
 
@@ -402,12 +467,19 @@ pub fn select_versions<'a>(p: &'a CompactPackage, req_version: Option<i64>, abis
     if let Some(vc) = req_version {
         return candidates.into_iter().filter(|v| v.version_code == vc).collect();
     }
-    let stable: Vec<&CompactVersion> = candidates.iter().copied().filter(|v| include_prereleases || v.channels.is_empty()).collect();
+    let stable: Vec<&CompactVersion> = candidates
+        .iter()
+        .copied()
+        .filter(|v| include_prereleases || v.channels.is_empty())
+        .collect();
     let pool = if stable.is_empty() { candidates } else { stable };
     let Some(latest) = pool.first() else { return vec![] };
     // ABI-split builds share a version name and have single-ABI native code.
     let mut picked: Vec<&CompactVersion> = if latest.nativecode.len() == 1 && latest.version_name.is_some() {
-        pool.iter().copied().filter(|v| v.version_name == latest.version_name && v.nativecode.len() == 1).collect()
+        pool.iter()
+            .copied()
+            .filter(|v| v.version_name == latest.version_name && v.nativecode.len() == 1)
+            .collect()
     } else {
         vec![*latest]
     };
@@ -460,8 +532,16 @@ impl Provider for FdroidProvider {
                 version_name: v.version_name.clone(),
                 description: format!(
                     "other version in repository{}{}",
-                    if v.channels.is_empty() { String::new() } else { format!(" ({})", v.channels.join(",")) },
-                    if v.nativecode.is_empty() { String::new() } else { format!(", ABIs {}", v.nativecode.join("/")) }
+                    if v.channels.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" ({})", v.channels.join(","))
+                    },
+                    if v.nativecode.is_empty() {
+                        String::new()
+                    } else {
+                        format!(", ABIs {}", v.nativecode.join("/"))
+                    }
                 ),
                 role: Some(FileRole::Standalone),
                 abis: v.nativecode.iter().filter_map(|a| Abi::parse(a)).collect(),
@@ -469,7 +549,8 @@ impl Provider for FdroidProvider {
             });
         }
         if p.versions.len() > 20 + picked.len() {
-            d.notes.push(format!("{} older versions not listed", p.versions.len() - 20 - picked.len()));
+            d.notes
+                .push(format!("{} older versions not listed", p.versions.len() - 20 - picked.len()));
         }
         d.notes.push("F-Droid builds apps from source; its APKs may be signed with F-Droid's key rather than the developer key used on Google Play (unless reproducible builds are published with the developer signature).".into());
         Ok(d)
@@ -496,12 +577,23 @@ mod tests {
     }
 
     fn pkg(versions: Vec<CompactVersion>) -> CompactPackage {
-        CompactPackage { name: None, summary: None, author: None, icon: None, preferred_signer: Some("aa".repeat(32)), versions }
+        CompactPackage {
+            name: None,
+            summary: None,
+            author: None,
+            icon: None,
+            preferred_signer: Some("aa".repeat(32)),
+            versions,
+        }
     }
 
     #[test]
     fn picks_latest_stable_universal() {
-        let p = pkg(vec![v(30, "3.0-beta", &[], &["Beta"]), v(20, "2.0", &["arm64-v8a", "x86"], &[]), v(10, "1.0", &[], &[])]);
+        let p = pkg(vec![
+            v(30, "3.0-beta", &[], &["Beta"]),
+            v(20, "2.0", &["arm64-v8a", "x86"], &[]),
+            v(10, "1.0", &[], &[]),
+        ]);
         let s = select_versions(&p, None, &[], false);
         assert_eq!(s.iter().map(|v| v.version_code).collect::<Vec<_>>(), vec![20]);
         let s = select_versions(&p, None, &[], true);

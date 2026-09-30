@@ -128,7 +128,12 @@ fn jwt_assertion(sa: &ServiceAccount, now: i64) -> Result<String, ProviderError>
 
 impl PlayDevProvider {
     pub fn new(cfg: PlayDevConfig, secrets: Arc<dyn SecretStore>) -> Self {
-        Self { cfg, secrets, client: http::client(), token: Mutex::new(None) }
+        Self {
+            cfg,
+            secrets,
+            client: http::client(),
+            token: Mutex::new(None),
+        }
     }
 
     async fn access_token(&self) -> Result<String, ProviderError> {
@@ -139,20 +144,29 @@ impl PlayDevProvider {
                 return Ok(tok.clone());
             }
         }
-        let json = self.secrets.get(SECRET_SERVICE_ACCOUNT).ok_or_else(|| ProviderError::NotConfigured("no service account configured".into()))?;
+        let json = self
+            .secrets
+            .get(SECRET_SERVICE_ACCOUNT)
+            .ok_or_else(|| ProviderError::NotConfigured("no service account configured".into()))?;
         let sa: ServiceAccount = serde_json::from_str(&json).map_err(|e| ProviderError::NotConfigured(format!("service account JSON: {e}")))?;
         let assertion = jwt_assertion(&sa, now)?;
         let resp = self
             .client
             .post(&sa.token_uri)
-            .form(&[("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"), ("assertion", assertion.as_str())])
+            .form(&[
+                ("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer"),
+                ("assertion", assertion.as_str()),
+            ])
             .send()
             .await
             .map_err(http::map_err)?;
         if !resp.status().is_success() {
             let s = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(ProviderError::Auth(format!("token endpoint HTTP {s}: {}", body.chars().take(200).collect::<String>())));
+            return Err(ProviderError::Auth(format!(
+                "token endpoint HTTP {s}: {}",
+                body.chars().take(200).collect::<String>()
+            )));
         }
         let tr: TokenResponse = resp.json().await.map_err(http::map_err)?;
         *t = Some((tr.access_token.clone(), now + tr.expires_in.max(60)));
@@ -161,7 +175,14 @@ impl PlayDevProvider {
 
     async fn api<T: for<'de> Deserialize<'de>>(&self, method: reqwest::Method, url: &str) -> Result<T, ProviderError> {
         let token = self.access_token().await?;
-        let resp = self.client.request(method, url).bearer_auth(token).header("Content-Length", "0").send().await.map_err(http::map_err)?;
+        let resp = self
+            .client
+            .request(method, url)
+            .bearer_auth(token)
+            .header("Content-Length", "0")
+            .send()
+            .await
+            .map_err(http::map_err)?;
         if !resp.status().is_success() {
             let s = resp.status();
             let body = resp.text().await.unwrap_or_default();
@@ -191,8 +212,12 @@ impl PlayDevProvider {
             status: Option<String>,
         }
         let edit: Edit = self.api(reqwest::Method::POST, &format!("{API}/{pkg}/edits")).await?;
-        let track: Result<Track, _> = self.api(reqwest::Method::GET, &format!("{API}/{pkg}/edits/{}/tracks/{}", edit.id, self.cfg.track)).await;
-        let _ = self.api::<serde_json::Value>(reqwest::Method::DELETE, &format!("{API}/{pkg}/edits/{}", edit.id)).await;
+        let track: Result<Track, _> = self
+            .api(reqwest::Method::GET, &format!("{API}/{pkg}/edits/{}/tracks/{}", edit.id, self.cfg.track))
+            .await;
+        let _ = self
+            .api::<serde_json::Value>(reqwest::Method::DELETE, &format!("{API}/{pkg}/edits/{}", edit.id))
+            .await;
         let track = track?;
         track
             .releases
@@ -200,28 +225,40 @@ impl PlayDevProvider {
             .filter(|r| matches!(r.status.as_deref(), Some("completed") | Some("inProgress") | None))
             .flat_map(|r| r.version_codes.iter().filter_map(|v| v.parse::<i64>().ok()))
             .max()
-            .ok_or_else(|| ProviderError::NotFound)
+            .ok_or(ProviderError::NotFound)
     }
 }
 
 /// Maps a generatedApks response to offers. Pure, unit-tested.
 pub fn generated_to_offers(pkg: &PackageName, vc: i64, resp: &GeneratedApksListResponse, bearer: &str) -> Vec<Offer> {
-    let auth = vec![Header { name: "Authorization".into(), value: format!("Bearer {bearer}"), sensitive: true }];
+    let auth = vec![Header {
+        name: "Authorization".into(),
+        value: format!("Bearer {bearer}"),
+        sensitive: true,
+    }];
     let url = |id: &str| format!("{API}/{pkg}/generatedApks/{vc}/downloads/{id}:download?alt=media");
     let file = |role: FileRole, name: String, id: &str| RemoteFile {
         role,
         file_name: name,
-        source: FileSource::Http { url: url(id), headers: auth.clone(), url_is_sensitive: false },
+        source: FileSource::Http {
+            url: url(id),
+            headers: auth.clone(),
+            url_is_sensitive: false,
+        },
         size: None,
         expected: ExpectedDigests::default(),
     };
     let mut offers = vec![];
     for (ki, key) in resp.generated_apks.iter().enumerate() {
-        let trust = key.certificate_sha256_hash.as_deref().and_then(Sha256Digest::parse_flexible).map(|d| TrustAnchor {
-            signer_cert_sha256: vec![d],
-            asserted_by: "Google Play Developer API (generatedApks, app signing key)".into(),
-            authenticated: false,
-        });
+        let trust = key
+            .certificate_sha256_hash
+            .as_deref()
+            .and_then(Sha256Digest::parse_flexible)
+            .map(|d| TrustAnchor {
+                signer_cert_sha256: vec![d],
+                asserted_by: "Google Play Developer API (generatedApks, app signing key)".into(),
+                authenticated: false,
+            });
         let base_offer = |layout, files, channel: String| Offer {
             provider: "play_dev".into(),
             package: pkg.clone(),
@@ -253,7 +290,11 @@ pub fn generated_to_offers(pkg: &PackageName, vc: i64, resp: &GeneratedApksListR
                     let module = s.module_name.clone().unwrap_or_else(|| "base".into());
                     let split = s.split_id.clone().unwrap_or_default();
                     let is_base = module == "base" && split.is_empty();
-                    let name = if is_base { format!("{pkg}-{vc}-v{variant}-base.apk") } else { format!("{pkg}-{vc}-v{variant}-{module}-{split}.apk").replace("-.apk", ".apk") };
+                    let name = if is_base {
+                        format!("{pkg}-{vc}-v{variant}-base.apk")
+                    } else {
+                        format!("{pkg}-{vc}-v{variant}-{module}-{split}.apk").replace("-.apk", ".apk")
+                    };
                     let split_name = match (module.as_str(), split.as_str()) {
                         ("base", s) => s.to_string(),
                         (m, "") => m.to_string(),
@@ -262,7 +303,11 @@ pub fn generated_to_offers(pkg: &PackageName, vc: i64, resp: &GeneratedApksListR
                     file(if is_base { FileRole::Base } else { FileRole::Split(split_name) }, name, &s.download_id)
                 })
                 .collect();
-            offers.push(base_offer(OfferLayout::SplitSet, files, format!("Play Developer API split APKs, variant {variant}")));
+            offers.push(base_offer(
+                OfferLayout::SplitSet,
+                files,
+                format!("Play Developer API split APKs, variant {variant}"),
+            ));
         }
         for s in &key.generated_standalone_apks {
             let v = s.variant_id.unwrap_or(0);
@@ -287,7 +332,9 @@ impl Provider for PlayDevProvider {
             enabled: self.cfg.enabled,
             requires_credentials: true,
             priority: 5,
-            description: "Official Android Publisher API: universal and split APKs generated and signed by Google Play, for apps in your developer account.".into(),
+            description:
+                "Official Android Publisher API: universal and split APKs generated and signed by Google Play, for apps in your developer account."
+                    .into(),
             status: match (self.cfg.enabled, configured) {
                 (false, _) => "Disabled in configuration.".into(),
                 (true, false) => "Enabled but no service account configured (uad secrets set-file play_dev.service_account_json <file>).".into(),
@@ -311,8 +358,12 @@ impl Provider for PlayDevProvider {
         if offers.is_empty() {
             return Err(ProviderError::NotFound);
         }
-        let mut d = Discovery { offers, ..Default::default() };
-        d.notes.push("Access tokens embedded in download requests expire after about one hour.".into());
+        let mut d = Discovery {
+            offers,
+            ..Default::default()
+        };
+        d.notes
+            .push("Access tokens embedded in download requests expire after about one hour.".into());
         Ok(d)
     }
 }
@@ -347,7 +398,11 @@ mod tests {
         use rsa::pkcs8::EncodePrivateKey;
         let key = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 1024).unwrap();
         let pem = key.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF).unwrap().to_string();
-        let sa = ServiceAccount { client_email: "x@y.iam.gserviceaccount.com".into(), private_key: pem, token_uri: default_token_uri() };
+        let sa = ServiceAccount {
+            client_email: "x@y.iam.gserviceaccount.com".into(),
+            private_key: pem,
+            token_uri: default_token_uri(),
+        };
         let jwt = jwt_assertion(&sa, 1_700_000_000).unwrap();
         let parts: Vec<&str> = jwt.split('.').collect();
         assert_eq!(parts.len(), 3);

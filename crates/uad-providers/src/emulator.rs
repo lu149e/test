@@ -52,7 +52,15 @@ fn default_true() -> bool {
 
 impl Default for EmulatorConfig {
     fn default() -> Self {
-        Self { enabled: false, sdk_root: None, avd: None, serial: None, port: default_port(), boot_timeout_secs: default_boot(), stop_after_use: true }
+        Self {
+            enabled: false,
+            sdk_root: None,
+            avd: None,
+            serial: None,
+            port: default_port(),
+            boot_timeout_secs: default_boot(),
+            stop_after_use: true,
+        }
     }
 }
 
@@ -66,7 +74,11 @@ fn exe(name: &str) -> String {
 
 /// Parses `pm path` output (`package:/data/app/.../base.apk` per line).
 pub fn parse_pm_path(out: &str) -> Vec<String> {
-    out.lines().filter_map(|l| l.trim().strip_prefix("package:")).map(|s| s.trim().to_string()).filter(|s| s.ends_with(".apk")).collect()
+    out.lines()
+        .filter_map(|l| l.trim().strip_prefix("package:"))
+        .map(|s| s.trim().to_string())
+        .filter(|s| s.ends_with(".apk"))
+        .collect()
 }
 
 /// Extracts `versionCode` and `versionName` from `dumpsys package <pkg>`.
@@ -96,7 +108,11 @@ pub struct EmulatorProvider {
 
 impl EmulatorProvider {
     pub fn new(cfg: EmulatorConfig, cache_dir: &Path) -> Self {
-        Self { cfg, work_dir: cache_dir.join("emulator"), lock: tokio::sync::Mutex::new(()) }
+        Self {
+            cfg,
+            work_dir: cache_dir.join("emulator"),
+            lock: tokio::sync::Mutex::new(()),
+        }
     }
 
     fn sdk(&self) -> Result<PathBuf, ProviderError> {
@@ -119,7 +135,12 @@ impl EmulatorProvider {
             .map_err(|_| ProviderError::Transient(format!("{} {:?} timed out", program.display(), args)))?
             .map_err(|e| ProviderError::NotConfigured(format!("{}: {e}", program.display())))?;
         if !out.status.success() {
-            return Err(ProviderError::Other(format!("{} {:?}: {}", program.display(), args, String::from_utf8_lossy(&out.stderr).trim())));
+            return Err(ProviderError::Other(format!(
+                "{} {:?}: {}",
+                program.display(),
+                args,
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
         }
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     }
@@ -146,12 +167,25 @@ impl EmulatorProvider {
         if self.device_ready(&serial).await {
             return Ok((serial, false));
         }
-        let avd = self.cfg.avd.clone().ok_or_else(|| ProviderError::NotConfigured("no emulator.avd or emulator.serial configured".into()))?;
+        let avd = self
+            .cfg
+            .avd
+            .clone()
+            .ok_or_else(|| ProviderError::NotConfigured("no emulator.avd or emulator.serial configured".into()))?;
         let emulator = self.sdk()?.join("emulator").join(exe("emulator"));
         let port = self.cfg.port.to_string();
         tracing::info!("starting AVD {avd} on port {port}");
         Command::new(&emulator)
-            .args(["-avd", &avd, "-port", &port, "-no-window", "-no-audio", "-no-boot-anim", "-no-snapshot-save"])
+            .args([
+                "-avd",
+                &avd,
+                "-port",
+                &port,
+                "-no-window",
+                "-no-audio",
+                "-no-boot-anim",
+                "-no-snapshot-save",
+            ])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -165,7 +199,10 @@ impl EmulatorProvider {
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
         let _ = self.adb_s(&serial, &["emu", "kill"]).await;
-        Err(ProviderError::Transient(format!("AVD {avd} did not boot within {}s", self.cfg.boot_timeout_secs)))
+        Err(ProviderError::Transient(format!(
+            "AVD {avd} did not boot within {}s",
+            self.cfg.boot_timeout_secs
+        )))
     }
 
     async fn extract(&self, serial: &str, req: &DiscoveryRequest) -> Result<Discovery, ProviderError> {
@@ -193,9 +230,19 @@ impl EmulatorProvider {
             } else {
                 FileRole::Split(name.trim_start_matches("split_").trim_end_matches(".apk").to_string())
             };
-            files.push(RemoteFile { role, file_name: name, source: FileSource::Local { path: local }, size: None, expected: ExpectedDigests::default() });
+            files.push(RemoteFile {
+                role,
+                file_name: name,
+                source: FileSource::Local { path: local },
+                size: None,
+                expected: ExpectedDigests::default(),
+            });
         }
-        let layout = if files.len() > 1 { OfferLayout::SplitSet } else { OfferLayout::UniversalApk };
+        let layout = if files.len() > 1 {
+            OfferLayout::SplitSet
+        } else {
+            OfferLayout::UniversalApk
+        };
         Ok(Discovery {
             offers: vec![Offer {
                 provider: "emulator".into(),

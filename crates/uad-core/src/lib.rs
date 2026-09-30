@@ -18,9 +18,8 @@ pub mod variant;
 pub use digest::{Sha1Digest, Sha256Digest};
 pub use input::{parse_input, AppInput, InputError, InputSource, PackageName};
 pub use job::{JobEvent, JobOptions, JobState, TransitionError, VerificationOutcome};
-pub use offer::{Header, 
-    AppMetadata, Discovery, DiscoveryRequest, ExpectedDigests, FileSource, KnownVariant, Offer,
-    OfferLayout, RemoteFile, TrustAnchor,
+pub use offer::{
+    AppMetadata, Discovery, DiscoveryRequest, ExpectedDigests, FileSource, Header, KnownVariant, Offer, OfferLayout, RemoteFile, TrustAnchor,
 };
 pub use provider::{Provider, ProviderError, ProviderInfo, ProviderKind};
 pub use secrets::{MemorySecretStore, SecretStore};

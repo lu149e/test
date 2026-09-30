@@ -87,14 +87,21 @@ pub fn parse_manifest(data: &[u8]) -> Result<(Section, Vec<Section>), String> {
             }
             continue;
         }
-        let sec = cur.get_or_insert_with(|| Section { attrs: vec![], start: line_start, end: 0 });
+        let sec = cur.get_or_insert_with(|| Section {
+            attrs: vec![],
+            start: line_start,
+            end: 0,
+        });
         if line[0] == b' ' {
             let (_, v) = sec.attrs.last_mut().ok_or("continuation line without attribute")?;
             v.push_str(&String::from_utf8_lossy(&line[1..]));
             continue;
         }
         let text = String::from_utf8_lossy(line);
-        let (k, v) = text.split_once(": ").or_else(|| text.split_once(':')).ok_or_else(|| format!("malformed manifest line: {text}"))?;
+        let (k, v) = text
+            .split_once(": ")
+            .or_else(|| text.split_once(':'))
+            .ok_or_else(|| format!("malformed manifest line: {text}"))?;
         sec.attrs.push((k.trim().to_string(), v.to_string()));
     }
     if let Some(mut s) = cur.take() {
@@ -108,7 +115,14 @@ pub fn parse_manifest(data: &[u8]) -> Result<(Section, Vec<Section>), String> {
     if main.name().is_some() {
         // No main section: first section is an entry. Treat main as empty.
         let entries = std::iter::once(main).chain(sections).collect();
-        return Ok((Section { attrs: vec![], start: 0, end: 0 }, entries));
+        return Ok((
+            Section {
+                attrs: vec![],
+                start: 0,
+                end: 0,
+            },
+            entries,
+        ));
     }
     Ok((main, sections))
 }
@@ -150,10 +164,16 @@ fn read_entry<R: Read + Seek>(zip: &mut zip::ZipArchive<R>, name: &str) -> Resul
 
 fn key_scheme_for(sig_oid: &str) -> Option<KeyScheme> {
     Some(match sig_oid {
-        "1.2.840.113549.1.1.1" | "1.2.840.113549.1.1.4" | "1.2.840.113549.1.1.5" | "1.2.840.113549.1.1.11"
-        | "1.2.840.113549.1.1.12" | "1.2.840.113549.1.1.13" | "1.2.840.113549.1.1.14" => KeyScheme::RsaPkcs1v15,
-        "1.2.840.10045.2.1" | "1.2.840.10045.4.1" | "1.2.840.10045.4.3.1" | "1.2.840.10045.4.3.2" | "1.2.840.10045.4.3.3"
-        | "1.2.840.10045.4.3.4" => KeyScheme::Ecdsa,
+        "1.2.840.113549.1.1.1"
+        | "1.2.840.113549.1.1.4"
+        | "1.2.840.113549.1.1.5"
+        | "1.2.840.113549.1.1.11"
+        | "1.2.840.113549.1.1.12"
+        | "1.2.840.113549.1.1.13"
+        | "1.2.840.113549.1.1.14" => KeyScheme::RsaPkcs1v15,
+        "1.2.840.10045.2.1" | "1.2.840.10045.4.1" | "1.2.840.10045.4.3.1" | "1.2.840.10045.4.3.2" | "1.2.840.10045.4.3.3" | "1.2.840.10045.4.3.4" => {
+            KeyScheme::Ecdsa
+        }
         "1.2.840.10040.4.1" | "1.2.840.10040.4.3" | "2.16.840.1.101.3.4.3.1" | "2.16.840.1.101.3.4.3.2" => KeyScheme::Dsa,
         _ => return None,
     })
@@ -255,7 +275,10 @@ pub fn verify_jar<R: Read + Seek>(zip: &mut zip::ZipArchive<R>, names: &[String]
     let mut covered_by_all: Option<HashSet<String>> = None;
     for sf_name in &sf_files {
         let base = &sf_name[..sf_name.len() - 3];
-        let block_name = [".RSA", ".DSA", ".EC"].iter().map(|ext| format!("{base}{ext}")).find(|n| name_set.contains(n.as_str()));
+        let block_name = [".RSA", ".DSA", ".EC"]
+            .iter()
+            .map(|ext| format!("{base}{ext}"))
+            .find(|n| name_set.contains(n.as_str()));
         let mut sr = V1SignerReport {
             signature_file: sf_name.clone(),
             block_file: block_name.clone().unwrap_or_default(),
@@ -381,7 +404,11 @@ pub fn verify_jar<R: Read + Seek>(zip: &mut zip::ZipArchive<R>, names: &[String]
             rep.warnings.push(format!("MANIFEST.MF lists {n}, which is not in the archive"));
         }
     }
-    if rep.signers.iter().any(|s| matches!(s.digest_algorithm, Some(DigestAlg::Md5 | DigestAlg::Sha1))) {
+    if rep
+        .signers
+        .iter()
+        .any(|s| matches!(s.digest_algorithm, Some(DigestAlg::Md5 | DigestAlg::Sha1)))
+    {
         rep.warnings.push("JAR signature uses a weak digest (MD5/SHA-1)".into());
     }
     rep.verified = rep.errors.is_empty();
@@ -398,7 +425,10 @@ mod tests {
         let (main, entries) = parse_manifest(mf).unwrap();
         assert_eq!(main.get("Created-By"), Some("test"));
         assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].name(), Some("res/very/long/path/that/wraps/over/the/seventy/two/byte/limit.png"));
+        assert_eq!(
+            entries[0].name(),
+            Some("res/very/long/path/that/wraps/over/the/seventy/two/byte/limit.png")
+        );
         let raw = &mf[entries[1].start..entries[1].end];
         assert_eq!(raw, b"Name: b\r\nSHA1-Digest: x\r\n\r\n");
     }

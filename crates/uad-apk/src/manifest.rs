@@ -81,7 +81,11 @@ impl ApkManifest {
             version_name: root.android_attr("versionName").map(|v| v.display()),
             compile_sdk: uint(root.android_attr("compileSdkVersion")),
             split: root.plain_attr("split").and_then(|v| v.as_str()).map(String::from),
-            config_for_split: root.plain_attr("configForSplit").and_then(|v| v.as_str()).map(String::from).filter(|s| !s.is_empty()),
+            config_for_split: root
+                .plain_attr("configForSplit")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .filter(|s| !s.is_empty()),
             is_feature_split: root.android_attr("isFeatureSplit").and_then(|v| v.as_bool()).unwrap_or(false),
             is_split_required: root.android_attr("isSplitRequired").and_then(|v| v.as_bool()).unwrap_or(false),
             required_split_types: csv(root.android_attr("requiredSplitTypes")),
@@ -94,7 +98,11 @@ impl ApkManifest {
             m.target_sdk = uint(sdk.android_attr("targetSdkVersion"));
             m.max_sdk = uint(sdk.android_attr("maxSdkVersion"));
         }
-        for p in root.children.iter().filter(|c| c.name == "uses-permission" || c.name == "uses-permission-sdk-23") {
+        for p in root
+            .children
+            .iter()
+            .filter(|c| c.name == "uses-permission" || c.name == "uses-permission-sdk-23")
+        {
             if let Some(n) = p.android_attr("name").and_then(|v| v.as_str()) {
                 m.permissions.push(n.to_string());
             }
@@ -102,7 +110,10 @@ impl ApkManifest {
         for f in root.children_named("uses-feature") {
             if let Some(n) = f.android_attr("name").and_then(|v| v.as_str()) {
                 let required = f.android_attr("required").and_then(|v| v.as_bool()).unwrap_or(true);
-                m.features.push(UsesFeature { name: n.to_string(), required });
+                m.features.push(UsesFeature {
+                    name: n.to_string(),
+                    required,
+                });
             }
         }
         for u in root.children_named("uses-split") {
@@ -120,9 +131,7 @@ impl ApkManifest {
             }
             for md in app.children_named("meta-data") {
                 let name = md.android_attr("name").and_then(|v| v.as_str());
-                if name == Some("com.android.vending.splits.required")
-                    && md.android_attr("value").and_then(|v| v.as_bool()) == Some(true)
-                {
+                if name == Some("com.android.vending.splits.required") && md.android_attr("value").and_then(|v| v.as_bool()) == Some(true) {
                     m.is_split_required = true;
                 }
             }

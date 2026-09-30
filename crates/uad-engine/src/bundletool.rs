@@ -42,7 +42,13 @@ const LOCAL_ALIAS: &str = "uad-local-build";
 
 impl Bundletool {
     pub fn new(cfg: BundletoolConfig, data_dir: &Path) -> Self {
-        Self { cfg, tools_dir: data_dir.join("tools"), keys_dir: data_dir.join("keys"), jar: OnceCell::new(), version: OnceCell::new() }
+        Self {
+            cfg,
+            tools_dir: data_dir.join("tools"),
+            keys_dir: data_dir.join("keys"),
+            jar: OnceCell::new(),
+            version: OnceCell::new(),
+        }
     }
 
     pub fn enabled(&self) -> bool {
@@ -68,8 +74,11 @@ impl Bundletool {
         if !self.cfg.auto_download {
             return Err(BundletoolError::Unavailable("no jar configured and auto_download disabled".into()));
         }
-        tokio::fs::create_dir_all(&self.tools_dir).await.map_err(|e| BundletoolError::Unavailable(e.to_string()))?;
-        let expected = uad_core::Sha256Digest::parse_flexible(&self.cfg.jar_sha256).ok_or_else(|| BundletoolError::Unavailable("invalid jar_sha256".into()))?;
+        tokio::fs::create_dir_all(&self.tools_dir)
+            .await
+            .map_err(|e| BundletoolError::Unavailable(e.to_string()))?;
+        let expected =
+            uad_core::Sha256Digest::parse_flexible(&self.cfg.jar_sha256).ok_or_else(|| BundletoolError::Unavailable("invalid jar_sha256".into()))?;
         tracing::info!("downloading bundletool from {}", self.cfg.download_url);
         uad_providers::http::download_verified(&uad_providers::http::client(), &self.cfg.download_url, &target, Some(&expected), None)
             .await
@@ -98,7 +107,14 @@ impl Bundletool {
     }
 
     pub async fn version(&self) -> Result<String, BundletoolError> {
-        self.version.get_or_try_init(|| async { self.run(&["version".into()], Duration::from_secs(60)).await.map(|v| format!("bundletool {v}")) }).await.cloned()
+        self.version
+            .get_or_try_init(|| async {
+                self.run(&["version".into()], Duration::from_secs(60))
+                    .await
+                    .map(|v| format!("bundletool {v}"))
+            })
+            .await
+            .cloned()
     }
 
     fn keytool(&self) -> PathBuf {
@@ -110,7 +126,9 @@ impl Bundletool {
             }
         }
         if let Some(home) = std::env::var_os("JAVA_HOME") {
-            let k = PathBuf::from(home).join("bin").join(if cfg!(windows) { "keytool.exe" } else { "keytool" });
+            let k = PathBuf::from(home)
+                .join("bin")
+                .join(if cfg!(windows) { "keytool.exe" } else { "keytool" });
             if k.exists() {
                 return k;
             }
@@ -121,8 +139,16 @@ impl Bundletool {
     /// Returns (keystore, alias, password file) — creating the local build key if needed.
     async fn signing(&self, scratch: &Path) -> Result<(PathBuf, String, PathBuf), BundletoolError> {
         if let Some(ks) = &self.cfg.keystore {
-            let alias = self.cfg.key_alias.clone().ok_or_else(|| BundletoolError::Unavailable("bundletool.key_alias required with keystore".into()))?;
-            let env = self.cfg.keystore_password_env.clone().ok_or_else(|| BundletoolError::Unavailable("bundletool.keystore_password_env required".into()))?;
+            let alias = self
+                .cfg
+                .key_alias
+                .clone()
+                .ok_or_else(|| BundletoolError::Unavailable("bundletool.key_alias required with keystore".into()))?;
+            let env = self
+                .cfg
+                .keystore_password_env
+                .clone()
+                .ok_or_else(|| BundletoolError::Unavailable("bundletool.keystore_password_env required".into()))?;
             let pass = std::env::var(&env).map_err(|_| BundletoolError::Unavailable(format!("{env} not set")))?;
             let pf = scratch.join("ks.pass");
             write_private(&pf, pass.as_bytes()).map_err(|e| BundletoolError::Unavailable(e.to_string()))?;
@@ -139,7 +165,18 @@ impl Bundletool {
             let out = Command::new(self.keytool())
                 .args(["-genkeypair", "-keystore"])
                 .arg(&ks)
-                .args(["-storetype", "PKCS12", "-alias", LOCAL_ALIAS, "-keyalg", "RSA", "-keysize", "3072", "-validity", "10000"])
+                .args([
+                    "-storetype",
+                    "PKCS12",
+                    "-alias",
+                    LOCAL_ALIAS,
+                    "-keyalg",
+                    "RSA",
+                    "-keysize",
+                    "3072",
+                    "-validity",
+                    "10000",
+                ])
                 .args(["-dname", "CN=UAD Local Build Key (NOT an original signer), O=Universal APK Downloader"])
                 .args(["-storepass", &pass, "-keypass", &pass])
                 .stdin(Stdio::null())
@@ -158,7 +195,9 @@ impl Bundletool {
         if !self.cfg.enabled {
             return Err(BundletoolError::Unavailable("disabled in configuration".into()));
         }
-        tokio::fs::create_dir_all(work_dir).await.map_err(|e| BundletoolError::Failed(e.to_string()))?;
+        tokio::fs::create_dir_all(work_dir)
+            .await
+            .map_err(|e| BundletoolError::Failed(e.to_string()))?;
         let (ks, alias, pass_file) = self.signing(work_dir).await?;
         let apks = work_dir.join("universal.apks");
         let _ = tokio::fs::remove_file(&apks).await;
@@ -188,6 +227,9 @@ impl Bundletool {
         .map_err(|e| BundletoolError::Failed(e.to_string()))?
         .map_err(BundletoolError::Failed)?;
         let _ = tokio::fs::remove_file(work_dir.join("ks.pass")).await;
-        Ok(Generated { path: out, tool: self.version().await.unwrap_or_else(|_| "bundletool".into()) })
+        Ok(Generated {
+            path: out,
+            tool: self.version().await.unwrap_or_else(|_| "bundletool".into()),
+        })
     }
 }

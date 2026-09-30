@@ -53,7 +53,13 @@ fn key_for(url: &str) -> String {
 
 impl Downloader {
     pub fn new(store: Arc<Store>, concurrency: usize, retries: u32, max_bytes: u64) -> Self {
-        Self { client: uad_providers::http::client(), store, permits: Arc::new(Semaphore::new(concurrency.max(1))), retries, max_bytes }
+        Self {
+            client: uad_providers::http::client(),
+            store,
+            permits: Arc::new(Semaphore::new(concurrency.max(1))),
+            retries,
+            max_bytes,
+        }
     }
 
     pub async fn fetch(&self, source: &FileSource, expected: &ExpectedDigests, size_hint: Option<u64>) -> Result<Fetched, DownloadError> {
@@ -63,7 +69,14 @@ impl Downloader {
                 let path = self.store.object_path(sha);
                 let (s256, s1, size) = hash_file(&path).await.map_err(|e| DownloadError::Other(e.to_string()))?;
                 if &s256 == sha {
-                    return Ok(Fetched { sha256: s256, sha1: s1, size, path, deduplicated: true, resumed_from: 0 });
+                    return Ok(Fetched {
+                        sha256: s256,
+                        sha1: s1,
+                        size,
+                        path,
+                        deduplicated: true,
+                        resumed_from: 0,
+                    });
                 }
                 return Err(DownloadError::Integrity(format!("stored object {sha} is corrupt")));
             }
@@ -116,7 +129,14 @@ impl Downloader {
         let mut resp = req.send().await.map_err(|e| DownloadError::Transient(e.without_url().to_string()))?;
         let status = resp.status();
         let (mut file, resumed_from) = if status.as_u16() == 206 && existing > 0 {
-            (tokio::fs::OpenOptions::new().append(true).open(part).await.map_err(|e| DownloadError::Other(e.to_string()))?, existing)
+            (
+                tokio::fs::OpenOptions::new()
+                    .append(true)
+                    .open(part)
+                    .await
+                    .map_err(|e| DownloadError::Other(e.to_string()))?,
+                existing,
+            )
         } else if status.is_success() {
             (tokio::fs::File::create(part).await.map_err(|e| DownloadError::Other(e.to_string()))?, 0)
         } else if status.as_u16() == 416 && existing > 0 {
@@ -139,7 +159,10 @@ impl Downloader {
                 Ok(None) => break,
                 Err(e) => {
                     let _ = file.flush().await;
-                    return Err(DownloadError::Transient(format!("connection interrupted after {written} bytes: {}", e.without_url())));
+                    return Err(DownloadError::Transient(format!(
+                        "connection interrupted after {written} bytes: {}",
+                        e.without_url()
+                    )));
                 }
             }
         }
@@ -156,12 +179,24 @@ impl Downloader {
         let (sha256, sha1, size) = hash_file(part).await.map_err(|e| DownloadError::Other(e.to_string()))?;
         check_expected(&sha256, &sha1, size, expected, size_hint)?;
         let deduplicated = self.store.artifact_known(&sha256).unwrap_or(false);
-        let path = self.store.adopt(part, &sha256, &sha1.to_hex(), size).map_err(|e| DownloadError::Other(e.to_string()))?;
-        Ok(Fetched { sha256, sha1, size, path, deduplicated, resumed_from })
+        let path = self
+            .store
+            .adopt(part, &sha256, &sha1.to_hex(), size)
+            .map_err(|e| DownloadError::Other(e.to_string()))?;
+        Ok(Fetched {
+            sha256,
+            sha1,
+            size,
+            path,
+            deduplicated,
+            resumed_from,
+        })
     }
 
     async fn import_local(&self, src: &Path, expected: &ExpectedDigests) -> Result<Fetched, DownloadError> {
-        let meta = tokio::fs::metadata(src).await.map_err(|e| DownloadError::Other(format!("{}: {e}", src.display())))?;
+        let meta = tokio::fs::metadata(src)
+            .await
+            .map_err(|e| DownloadError::Other(format!("{}: {e}", src.display())))?;
         if meta.len() > self.max_bytes {
             return Err(DownloadError::Integrity("file exceeds maximum size".into()));
         }
@@ -173,12 +208,28 @@ impl Downloader {
             return Err(e);
         }
         let deduplicated = self.store.artifact_known(&sha256).unwrap_or(false);
-        let path = self.store.adopt(&tmp, &sha256, &sha1.to_hex(), size).map_err(|e| DownloadError::Other(e.to_string()))?;
-        Ok(Fetched { sha256, sha1, size, path, deduplicated, resumed_from: 0 })
+        let path = self
+            .store
+            .adopt(&tmp, &sha256, &sha1.to_hex(), size)
+            .map_err(|e| DownloadError::Other(e.to_string()))?;
+        Ok(Fetched {
+            sha256,
+            sha1,
+            size,
+            path,
+            deduplicated,
+            resumed_from: 0,
+        })
     }
 }
 
-fn check_expected(sha256: &Sha256Digest, sha1: &Sha1Digest, size: u64, expected: &ExpectedDigests, size_hint: Option<u64>) -> Result<(), DownloadError> {
+fn check_expected(
+    sha256: &Sha256Digest,
+    sha1: &Sha1Digest,
+    size: u64,
+    expected: &ExpectedDigests,
+    size_hint: Option<u64>,
+) -> Result<(), DownloadError> {
     if let Some(e) = &expected.sha256 {
         if e != sha256 {
             return Err(DownloadError::Integrity(format!("SHA-256 mismatch: declared {e}, got {sha256}")));
@@ -239,11 +290,17 @@ mod tests {
                     let n = sock.read(&mut buf).await.unwrap_or(0);
                     let req = String::from_utf8_lossy(&buf[..n]).to_string();
                     if !req.starts_with("GET /file") {
-                        let _ = sock.write_all(b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n").await;
+                        let _ = sock
+                            .write_all(b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+                            .await;
                         return;
                     }
                     let hit = h.fetch_add(1, Ordering::SeqCst);
-                    let range = req.lines().find_map(|l| l.to_ascii_lowercase().strip_prefix("range: bytes=").map(|r| r.trim_end_matches('-').trim().parse::<usize>().unwrap()));
+                    let range = req.lines().find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("range: bytes=")
+                            .map(|r| r.trim_end_matches('-').trim().parse::<usize>().unwrap())
+                    });
                     if hit == 0 {
                         let head = format!("HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n", d.len());
                         let _ = sock.write_all(head.as_bytes()).await;
@@ -275,8 +332,15 @@ mod tests {
         let (base, hits, data) = serve().await;
         let (_d, s) = store();
         let dl = Downloader::new(s.clone(), 2, 3, u64::MAX);
-        let expected = ExpectedDigests { sha256: Some(Sha256Digest(Sha256::digest(&data).into())), sha1: None };
-        let src = FileSource::Http { url: format!("{base}/file"), headers: vec![], url_is_sensitive: false };
+        let expected = ExpectedDigests {
+            sha256: Some(Sha256Digest(Sha256::digest(&data).into())),
+            sha1: None,
+        };
+        let src = FileSource::Http {
+            url: format!("{base}/file"),
+            headers: vec![],
+            url_is_sensitive: false,
+        };
         let f = dl.fetch(&src, &expected, Some(data.len() as u64)).await.unwrap();
         assert_eq!(f.size, data.len() as u64);
         assert_eq!(f.resumed_from, 10_000, "second attempt must resume with Range");
@@ -293,12 +357,26 @@ mod tests {
         let (base, _hits, data) = serve().await;
         let (_d, s) = store();
         let dl = Downloader::new(s.clone(), 2, 3, u64::MAX);
-        let wrong = ExpectedDigests { sha256: Some(Sha256Digest([9u8; 32])), sha1: None };
-        let src = FileSource::Http { url: format!("{base}/file"), headers: vec![], url_is_sensitive: false };
+        let wrong = ExpectedDigests {
+            sha256: Some(Sha256Digest([9u8; 32])),
+            sha1: None,
+        };
+        let src = FileSource::Http {
+            url: format!("{base}/file"),
+            headers: vec![],
+            url_is_sensitive: false,
+        };
         let e = dl.fetch(&src, &wrong, Some(data.len() as u64)).await.unwrap_err();
         assert!(matches!(e, DownloadError::Integrity(_)), "{e}");
         assert_eq!(s.stats().unwrap().1, 0, "nothing adopted");
-        let src = FileSource::Http { url: format!("{base}/missing"), headers: vec![], url_is_sensitive: false };
-        assert!(matches!(dl.fetch(&src, &ExpectedDigests::default(), None).await.unwrap_err(), DownloadError::Rejected(_)));
+        let src = FileSource::Http {
+            url: format!("{base}/missing"),
+            headers: vec![],
+            url_is_sensitive: false,
+        };
+        assert!(matches!(
+            dl.fetch(&src, &ExpectedDigests::default(), None).await.unwrap_err(),
+            DownloadError::Rejected(_)
+        ));
     }
 }

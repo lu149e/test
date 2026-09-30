@@ -95,7 +95,8 @@ pub fn validate_split_set(members: &[(String, &ApkAnalysis)]) -> SplitSetReport 
     for (label, a) in members {
         if let Some(target) = &a.manifest.config_for_split {
             if !feature_names.contains(target) {
-                r.errors.push(format!("{label}: configForSplit={target} but that feature split is not in the set"));
+                r.errors
+                    .push(format!("{label}: configForSplit={target} but that feature split is not in the set"));
             }
         }
         for dep in &a.manifest.uses_splits {
@@ -106,7 +107,8 @@ pub fn validate_split_set(members: &[(String, &ApkAnalysis)]) -> SplitSetReport 
     }
     r.unmet_required_split_types = required_types.difference(&provided_types).cloned().collect();
     if !r.unmet_required_split_types.is_empty() {
-        r.errors.push(format!("required split types not provided: {}", r.unmet_required_split_types.join(", ")));
+        r.errors
+            .push(format!("required split types not provided: {}", r.unmet_required_split_types.join(", ")));
     }
     if bases.len() == 1 && bases[0].1.manifest.is_split_required && members.len() == 1 {
         r.errors.push("base APK declares that splits are required".into());
@@ -114,8 +116,19 @@ pub fn validate_split_set(members: &[(String, &ApkAnalysis)]) -> SplitSetReport 
     r.abis.sort();
     r.abis.dedup();
     let abi_splits = r.abis.len();
-    if abi_splits > 1 && members.iter().any(|(_, a)| a.manifest.split.as_deref().is_some_and(|s| s.starts_with("config.") && parse_split_name(s).dimension.as_ref().is_some_and(|d| matches!(d, SplitDimension::Abi(_))))) {
-        r.warnings.push("set contains several ABI splits; the installer will only use the device's".into());
+    if abi_splits > 1
+        && members.iter().any(|(_, a)| {
+            a.manifest.split.as_deref().is_some_and(|s| {
+                s.starts_with("config.")
+                    && parse_split_name(s)
+                        .dimension
+                        .as_ref()
+                        .is_some_and(|d| matches!(d, SplitDimension::Abi(_)))
+            })
+        })
+    {
+        r.warnings
+            .push("set contains several ABI splits; the installer will only use the device's".into());
     }
     r.splits = names.into_iter().collect();
     r.feature_modules = feature_names.into_iter().collect();

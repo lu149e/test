@@ -34,7 +34,9 @@ pub fn write_apks(out: &Path, package: &str, version_code: i64, members: &[(Stri
     {
         let f = File::create(&tmp)?;
         let mut z = zip::ZipWriter::new(f);
-        let opts = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored).large_file(false);
+        let opts = SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored)
+            .large_file(false);
         let mut entries = Vec::new();
         for (name, path, split, sha, size) in members {
             let safe = name.replace(['/', '\\'], "_");
@@ -42,7 +44,12 @@ pub fn write_apks(out: &Path, package: &str, version_code: i64, members: &[(Stri
             z.start_file(&arc, opts).map_err(io::Error::other)?;
             let mut src = File::open(path)?;
             io::copy(&mut src, &mut z)?;
-            entries.push(ApksEntry { file: arc, split: split.clone(), sha256: sha.clone(), size: *size });
+            entries.push(ApksEntry {
+                file: arc,
+                split: split.clone(),
+                sha256: sha.clone(),
+                size: *size,
+            });
         }
         let toc = ApksToc {
             format: "uad-apks/1",

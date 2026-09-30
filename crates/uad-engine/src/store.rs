@@ -147,7 +147,11 @@ impl Store {
         conn.busy_timeout(std::time::Duration::from_secs(10))?;
         conn.execute_batch(SCHEMA)?;
         conn.execute("INSERT OR IGNORE INTO meta(key, value) VALUES ('schema_version', '1')", [])?;
-        Ok(Self { conn: Mutex::new(conn), objects, tmp })
+        Ok(Self {
+            conn: Mutex::new(conn),
+            objects,
+            tmp,
+        })
     }
 
     pub fn tmp_dir(&self) -> &Path {
@@ -187,7 +191,11 @@ impl Store {
     }
 
     pub fn artifact_known(&self, sha256: &Sha256Digest) -> Result<bool> {
-        let n: i64 = self.conn.lock().unwrap().query_row("SELECT COUNT(*) FROM artifacts WHERE sha256 = ?1", [sha256.to_hex()], |r| r.get(0))?;
+        let n: i64 = self
+            .conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM artifacts WHERE sha256 = ?1", [sha256.to_hex()], |r| r.get(0))?;
         Ok(n > 0 && self.object_path(sha256).exists())
     }
 
@@ -196,20 +204,27 @@ impl Store {
             .conn
             .lock()
             .unwrap()
-            .query_row("SELECT analysis FROM artifacts WHERE sha256 = ?1", [sha256.to_hex()], |r| r.get::<_, Option<String>>(0))
+            .query_row("SELECT analysis FROM artifacts WHERE sha256 = ?1", [sha256.to_hex()], |r| {
+                r.get::<_, Option<String>>(0)
+            })
             .optional()?
             .flatten())
     }
 
     pub fn set_artifact_analysis(&self, sha256: &Sha256Digest, json: &str) -> Result<()> {
-        self.conn.lock().unwrap().execute("UPDATE artifacts SET analysis = ?2 WHERE sha256 = ?1", params![sha256.to_hex(), json])?;
+        self.conn
+            .lock()
+            .unwrap()
+            .execute("UPDATE artifacts SET analysis = ?2 WHERE sha256 = ?1", params![sha256.to_hex(), json])?;
         Ok(())
     }
 
     pub fn stats(&self) -> Result<(i64, i64, i64)> {
         let c = self.conn.lock().unwrap();
         let jobs: i64 = c.query_row("SELECT COUNT(*) FROM jobs", [], |r| r.get(0))?;
-        let (n, bytes): (i64, i64) = c.query_row("SELECT COUNT(*), COALESCE(SUM(size),0) FROM artifacts", [], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        let (n, bytes): (i64, i64) = c.query_row("SELECT COUNT(*), COALESCE(SUM(size),0) FROM artifacts", [], |r| {
+            Ok((r.get(0)?, r.get(1)?))
+        })?;
         Ok((jobs, n, bytes))
     }
 
@@ -222,7 +237,10 @@ impl Store {
             "INSERT INTO jobs(id, input, state, options, created_at, updated_at) VALUES (?1, ?2, 'queued', ?3, ?4, ?4)",
             params![id, input, options.to_string(), t],
         )?;
-        c.execute("INSERT INTO job_events(job_id, at, to_state, message) VALUES (?1, ?2, 'queued', 'created')", params![id, t])?;
+        c.execute(
+            "INSERT INTO job_events(job_id, at, to_state, message) VALUES (?1, ?2, 'queued', 'created')",
+            params![id, t],
+        )?;
         Ok(())
     }
 
@@ -245,22 +263,36 @@ impl Store {
     }
 
     pub fn set_job_package(&self, id: &str, package: &str) -> Result<()> {
-        self.conn.lock().unwrap().execute("UPDATE jobs SET package = ?2 WHERE id = ?1", params![id, package])?;
+        self.conn
+            .lock()
+            .unwrap()
+            .execute("UPDATE jobs SET package = ?2 WHERE id = ?1", params![id, package])?;
         Ok(())
     }
 
     pub fn set_job_error(&self, id: &str, error: Option<&str>) -> Result<()> {
-        self.conn.lock().unwrap().execute("UPDATE jobs SET error = ?2 WHERE id = ?1", params![id, error])?;
+        self.conn
+            .lock()
+            .unwrap()
+            .execute("UPDATE jobs SET error = ?2 WHERE id = ?1", params![id, error])?;
         Ok(())
     }
 
     pub fn set_job_report(&self, id: &str, report: &serde_json::Value) -> Result<()> {
-        self.conn.lock().unwrap().execute("UPDATE jobs SET report = ?2, updated_at = ?3 WHERE id = ?1", params![id, report.to_string(), now()])?;
+        self.conn.lock().unwrap().execute(
+            "UPDATE jobs SET report = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, report.to_string(), now()],
+        )?;
         Ok(())
     }
 
     pub fn get_job(&self, id: &str) -> Result<Option<JobRow>> {
-        Ok(self.conn.lock().unwrap().query_row(&format!("SELECT {JOB_COLS} FROM jobs WHERE id = ?1"), [id], row_to_job).optional()?)
+        Ok(self
+            .conn
+            .lock()
+            .unwrap()
+            .query_row(&format!("SELECT {JOB_COLS} FROM jobs WHERE id = ?1"), [id], row_to_job)
+            .optional()?)
     }
 
     pub fn list_jobs(&self, limit: usize, package: Option<&str>) -> Result<Vec<JobRow>> {
@@ -268,7 +300,9 @@ impl Store {
         let mut out = vec![];
         match package {
             Some(p) => {
-                let mut st = c.prepare(&format!("SELECT {JOB_COLS} FROM jobs WHERE package = ?1 ORDER BY created_at DESC LIMIT ?2"))?;
+                let mut st = c.prepare(&format!(
+                    "SELECT {JOB_COLS} FROM jobs WHERE package = ?1 ORDER BY created_at DESC LIMIT ?2"
+                ))?;
                 for r in st.query_map(params![p, limit as i64], row_to_job)? {
                     out.push(r?);
                 }
@@ -291,7 +325,14 @@ impl Store {
     pub fn job_events(&self, id: &str) -> Result<Vec<JobEventRow>> {
         let c = self.conn.lock().unwrap();
         let mut st = c.prepare("SELECT at, from_state, to_state, message FROM job_events WHERE job_id = ?1 ORDER BY id")?;
-        let rows = st.query_map([id], |r| Ok(JobEventRow { at: r.get(0)?, from_state: r.get(1)?, to_state: r.get(2)?, message: r.get(3)? }))?;
+        let rows = st.query_map([id], |r| {
+            Ok(JobEventRow {
+                at: r.get(0)?,
+                from_state: r.get(1)?,
+                to_state: r.get(2)?,
+                message: r.get(3)?,
+            })
+        })?;
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
@@ -315,7 +356,14 @@ impl Store {
     // ---- provenance --------------------------------------------------------------------------
 
     pub fn provenance_last(&self) -> Result<Option<(i64, String)>> {
-        Ok(self.conn.lock().unwrap().query_row("SELECT seq, hash FROM provenance ORDER BY seq DESC LIMIT 1", [], |r| Ok((r.get(0)?, r.get(1)?))).optional()?)
+        Ok(self
+            .conn
+            .lock()
+            .unwrap()
+            .query_row("SELECT seq, hash FROM provenance ORDER BY seq DESC LIMIT 1", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .optional()?)
     }
 
     pub fn provenance_insert(&self, row: &ProvenanceRow) -> Result<()> {
@@ -329,12 +377,21 @@ impl Store {
     pub fn provenance_rows(&self, artifact: Option<&str>) -> Result<Vec<ProvenanceRow>> {
         let c = self.conn.lock().unwrap();
         let map = |r: &rusqlite::Row<'_>| {
-            Ok(ProvenanceRow { seq: r.get(0)?, artifact_sha256: r.get(1)?, record: r.get(2)?, prev_hash: r.get(3)?, hash: r.get(4)?, signature: r.get(5)? })
+            Ok(ProvenanceRow {
+                seq: r.get(0)?,
+                artifact_sha256: r.get(1)?,
+                record: r.get(2)?,
+                prev_hash: r.get(3)?,
+                hash: r.get(4)?,
+                signature: r.get(5)?,
+            })
         };
         let mut out = vec![];
         match artifact {
             Some(a) => {
-                let mut st = c.prepare("SELECT seq, artifact_sha256, record, prev_hash, hash, signature FROM provenance WHERE artifact_sha256 = ?1 ORDER BY seq")?;
+                let mut st = c.prepare(
+                    "SELECT seq, artifact_sha256, record, prev_hash, hash, signature FROM provenance WHERE artifact_sha256 = ?1 ORDER BY seq",
+                )?;
                 for r in st.query_map([a], map)? {
                     out.push(r?);
                 }
@@ -352,7 +409,10 @@ impl Store {
     /// Test hook: tamper with a stored record.
     #[doc(hidden)]
     pub fn _tamper_provenance(&self, seq: i64, record: &str) -> Result<()> {
-        self.conn.lock().unwrap().execute("UPDATE provenance SET record = ?2 WHERE seq = ?1", params![seq, record])?;
+        self.conn
+            .lock()
+            .unwrap()
+            .execute("UPDATE provenance SET record = ?2 WHERE seq = ?1", params![seq, record])?;
         Ok(())
     }
 }
@@ -367,7 +427,10 @@ mod tests {
         let s = Store::open(&d.path().join("db"), d.path().join("o"), d.path().join("t")).unwrap();
         s.insert_job("j1", "com.a.b", &serde_json::json!({})).unwrap();
         s.transition("j1", JobState::Queued, JobState::Resolving, None).unwrap();
-        assert!(s.transition("j1", JobState::Queued, JobState::Resolving, None).is_err(), "stale transition rejected");
+        assert!(
+            s.transition("j1", JobState::Queued, JobState::Resolving, None).is_err(),
+            "stale transition rejected"
+        );
         let j = s.get_job("j1").unwrap().unwrap();
         assert_eq!(j.state, JobState::Resolving);
         assert_eq!(j.attempts, 1);

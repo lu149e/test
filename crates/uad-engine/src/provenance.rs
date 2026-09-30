@@ -63,7 +63,10 @@ impl Ledger {
         let path = keys_dir.join("provenance.ed25519");
         let key = match std::fs::read_to_string(&path) {
             Ok(s) => {
-                let bytes: [u8; 32] = hex::decode(s.trim()).map_err(|e| e.to_string())?.try_into().map_err(|_| "bad provenance key length")?;
+                let bytes: [u8; 32] = hex::decode(s.trim())
+                    .map_err(|e| e.to_string())?
+                    .try_into()
+                    .map_err(|_| "bad provenance key length")?;
                 SigningKey::from_bytes(&bytes)
             }
             Err(_) => {
@@ -73,7 +76,11 @@ impl Ledger {
                 k
             }
         };
-        Ok(Self { store, key, lock: Mutex::new(()) })
+        Ok(Self {
+            store,
+            key,
+            lock: Mutex::new(()),
+        })
     }
 
     pub fn public_key_hex(&self) -> String {
@@ -93,7 +100,14 @@ impl Ledger {
         let record = serde_json::to_string(&rec).map_err(|e| e.to_string())?;
         let hash = hex::encode(Sha256::digest(record.as_bytes()));
         let signature = hex::encode(self.key.sign(hash.as_bytes()).to_bytes());
-        let row = ProvenanceRow { seq, artifact_sha256: rec.artifact_sha256.clone(), record, prev_hash: prev, hash, signature };
+        let row = ProvenanceRow {
+            seq,
+            artifact_sha256: rec.artifact_sha256.clone(),
+            record,
+            prev_hash: prev,
+            hash,
+            signature,
+        };
         self.store.provenance_insert(&row).map_err(|e| e.to_string())?;
         Ok(row)
     }
@@ -138,7 +152,12 @@ pub fn verify_rows(rows: &[ProvenanceRow], vk: &VerifyingKey) -> ChainReport {
         }
         prev = r.hash.clone();
     }
-    ChainReport { records: rows.len(), valid: errors.is_empty(), public_key: hex::encode(vk.to_bytes()), errors }
+    ChainReport {
+        records: rows.len(),
+        valid: errors.is_empty(),
+        public_key: hex::encode(vk.to_bytes()),
+        errors,
+    }
 }
 
 #[cfg(test)]

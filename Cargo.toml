@@ -32,6 +32,8 @@ hex = "0.4"
 base64 = "0.22"
 bytes = "1"
 tempfile = "3"
+tokio-util = { version = "0.7", features = ["io"] }
+rpassword = "7"
 
 # Cryptography: RustCrypto "digest 0.10" generation, kept consistent on purpose.
 sha1 = { version = "0.10", features = ["oid"] }

@@ -98,12 +98,22 @@ impl Engine {
         let mut providers: Vec<Arc<dyn Provider>> = vec![
             Arc::new(uad_providers::play_web::PlayWebProvider::new(cfg.providers.play_web)),
             play.clone(),
-            Arc::new(uad_providers::play_dev::PlayDevProvider::new(cfg.providers.play_dev.clone(), secret_dyn.clone())),
+            Arc::new(uad_providers::play_dev::PlayDevProvider::new(
+                cfg.providers.play_dev.clone(),
+                secret_dyn.clone(),
+            )),
             Arc::new(uad_providers::fdroid::FdroidProvider::new(cfg.providers.fdroid.clone(), cache.clone())),
-            Arc::new(uad_providers::local::LocalProvider::new(cfg.providers.local.enabled, cfg.inbox_dir(), &cache)),
+            Arc::new(uad_providers::local::LocalProvider::new(
+                cfg.providers.local.enabled,
+                cfg.inbox_dir(),
+                &cache,
+            )),
         ];
         #[cfg(feature = "emulator")]
-        providers.push(Arc::new(uad_providers::emulator::EmulatorProvider::new(cfg.providers.emulator.clone(), &cache)));
+        providers.push(Arc::new(uad_providers::emulator::EmulatorProvider::new(
+            cfg.providers.emulator.clone(),
+            &cache,
+        )));
         providers.sort_by_key(|p| p.info().priority);
         std::fs::create_dir_all(cfg.inbox_dir()).map_err(|e| EngineError::Other(e.to_string()))?;
         let downloader = Downloader::new(store.clone(), cfg.max_concurrent_downloads, cfg.download_retries, cfg.max_file_bytes);
@@ -143,7 +153,12 @@ impl Engine {
         for j in self.store.jobs_in_states(&[JobState::Queued])? {
             let _ = self.tx.send(j.id);
         }
-        let rx = self.rx.lock().await.take().ok_or_else(|| EngineError::Other("engine already started".into()))?;
+        let rx = self
+            .rx
+            .lock()
+            .await
+            .take()
+            .ok_or_else(|| EngineError::Other("engine already started".into()))?;
         let rx = Arc::new(Mutex::new(rx));
         for _ in 0..self.cfg.max_concurrent_jobs.max(1) {
             let me = self.clone();
@@ -198,7 +213,8 @@ impl Engine {
             return Err(EngineError::Conflict(format!("job is {}", j.state)));
         }
         if j.state == JobState::Queued {
-            self.store.transition(id, JobState::Queued, JobState::Cancelled, Some("cancelled while queued"))?;
+            self.store
+                .transition(id, JobState::Queued, JobState::Cancelled, Some("cancelled while queued"))?;
         } else {
             self.cancelled.lock().unwrap().insert(id.to_string());
         }
@@ -225,7 +241,9 @@ impl Engine {
     pub fn verified_artifact(&self, sha: &str) -> Result<(PathBuf, String), EngineError> {
         let digest: Sha256Digest = sha.parse().map_err(|_| EngineError::Input("bad sha256".into()))?;
         let rows = self.store.provenance_rows(Some(&digest.to_hex()))?;
-        let last = rows.last().ok_or_else(|| EngineError::NotFound("no verified artifact with this digest".into()))?;
+        let last = rows
+            .last()
+            .ok_or_else(|| EngineError::NotFound("no verified artifact with this digest".into()))?;
         let rec: ProvenanceRecord = serde_json::from_str(&last.record).map_err(|e| EngineError::Other(e.to_string()))?;
         let path = self.store.object_path(&digest);
         if !path.exists() {
@@ -245,13 +263,20 @@ impl Engine {
     /// Builds (or reuses) an `.apks` archive for a verified split set of a job.
     pub async fn export_split_set(&self, job_id: &str, set_index: usize) -> Result<(PathBuf, String), EngineError> {
         let report = self.report(job_id)?.ok_or_else(|| EngineError::NotFound("job has no report".into()))?;
-        let set = report.split_sets.get(set_index).ok_or_else(|| EngineError::NotFound("split set".into()))?;
+        let set = report
+            .split_sets
+            .get(set_index)
+            .ok_or_else(|| EngineError::NotFound("split set".into()))?;
         let members: Vec<&VariantEntry> = set.members.iter().filter_map(|id| report.variants.iter().find(|v| v.id == *id)).collect();
         if members.is_empty() || members.iter().any(|m| m.verified != Some(true)) {
             return Err(EngineError::Conflict("split set contains unverified members".into()));
         }
         let pkg = report.package.clone().unwrap_or_default();
-        let name = format!("{pkg}-{}-{}.apks", set.version_code, set.device_profile.clone().unwrap_or_else(|| set.provider.clone()));
+        let name = format!(
+            "{pkg}-{}-{}.apks",
+            set.version_code,
+            set.device_profile.clone().unwrap_or_else(|| set.provider.clone())
+        );
         let dir = self.cfg.data_dir.join("exports").join(job_id);
         tokio::fs::create_dir_all(&dir).await.map_err(|e| EngineError::Other(e.to_string()))?;
         let out = dir.join(format!("set-{set_index}.apks"));
@@ -264,13 +289,22 @@ impl Engine {
                         Some(FileRole::Split(s)) => Some(s.clone()),
                         _ => None,
                     };
-                    (m.file_name.clone().unwrap_or_else(|| format!("{}.apk", m.id)), self.store.object_path(&sha), split, sha.to_hex(), m.size.unwrap_or(0))
+                    (
+                        m.file_name.clone().unwrap_or_else(|| format!("{}.apk", m.id)),
+                        self.store.object_path(&sha),
+                        split,
+                        sha.to_hex(),
+                        m.size.unwrap_or(0),
+                    )
                 })
                 .collect();
             let vc = set.version_code;
             let out2 = out.clone();
             tokio::task::spawn_blocking(move || {
-                let refs: Vec<(String, &Path, Option<String>, String, u64)> = items.iter().map(|(a, b, c, d, e)| (a.clone(), b.as_path(), c.clone(), d.clone(), *e)).collect();
+                let refs: Vec<(String, &Path, Option<String>, String, u64)> = items
+                    .iter()
+                    .map(|(a, b, c, d, e)| (a.clone(), b.as_path(), c.clone(), d.clone(), *e))
+                    .collect();
                 uad_apk::apks::write_apks(&out2, &pkg, vc, &refs)
             })
             .await
@@ -283,7 +317,11 @@ impl Engine {
     /// Moves an uploaded/imported file into the inbox after validating it is an APK/AAB/APKS,
     /// returning the package name it declares.
     pub async fn import_file(&self, tmp: &Path, original_name: &str) -> Result<String, EngineError> {
-        let ext = Path::new(original_name).extension().and_then(|e| e.to_str()).unwrap_or_default().to_ascii_lowercase();
+        let ext = Path::new(original_name)
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
         if !["apk", "aab", "apks", "xapk"].contains(&ext.as_str()) {
             return Err(EngineError::Input("only .apk, .aab, .apks and .xapk files are accepted".into()));
         }
@@ -425,7 +463,15 @@ impl Engine {
         let mut offers: Vec<(i32, Offer)> = vec![];
         let mut discoveries: Vec<(i32, String, Discovery)> = vec![];
         for (info, r, dur) in results {
-            let mut outcome = ProviderOutcome { id: info.id.clone(), name: info.name.clone(), status: String::new(), message: None, offers: 0, duration_ms: dur.as_millis(), notes: vec![] };
+            let mut outcome = ProviderOutcome {
+                id: info.id.clone(),
+                name: info.name.clone(),
+                status: String::new(),
+                message: None,
+                offers: 0,
+                duration_ms: dur.as_millis(),
+                notes: vec![],
+            };
             match r {
                 Err(_) => {
                     outcome.status = "timeout".into();
@@ -505,7 +551,12 @@ impl Engine {
         if offers.is_empty() {
             report.outcome = "none".into();
             report.outcome_description = "No provider offered downloadable files for this app.".into();
-            let reasons: Vec<String> = report.providers.iter().filter(|p| p.id != "play_web").map(|p| format!("{}: {}", p.id, p.message.clone().unwrap_or(p.status.clone()))).collect();
+            let reasons: Vec<String> = report
+                .providers
+                .iter()
+                .filter(|p| p.id != "play_web")
+                .map(|p| format!("{}: {}", p.id, p.message.clone().unwrap_or(p.status.clone())))
+                .collect();
             return Err(EngineError::Other(format!("no downloadable offer found ({})", reasons.join("; "))));
         }
         self.advance(id, state, JobEvent::OffersFound, Some(&format!("{} offer(s)", offers.len())))?;
@@ -521,7 +572,9 @@ impl Engine {
             if ok {
                 break;
             }
-            report.notes.push(format!("offer(s) {alt:?} could not be fully downloaded; trying the next alternative"));
+            report
+                .notes
+                .push(format!("offer(s) {alt:?} could not be fully downloaded; trying the next alternative"));
         }
         if !extras.is_empty() {
             self.acquire_offers(&extras, &offers, report).await;
@@ -557,10 +610,16 @@ impl Engine {
             }
         }
         // App bundles → universal APK with bundletool.
-        let bundles: Vec<usize> = analyses.iter().filter(|(_, a)| a.container == Container::AppBundle).map(|(k, _)| *k).collect();
+        let bundles: Vec<usize> = analyses
+            .iter()
+            .filter(|(_, a)| a.container == Container::AppBundle)
+            .map(|(k, _)| *k)
+            .collect();
         for vid in bundles {
             if !opts.build_universal_from_aab {
-                report.notes.push("universal APK generation from the bundle was disabled for this job".into());
+                report
+                    .notes
+                    .push("universal APK generation from the bundle was disabled for this job".into());
                 continue;
             }
             check_cancel!();
@@ -575,17 +634,28 @@ impl Engine {
         let mut by_offer: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
         for v in &report.variants {
             if let (Some(oi), true) = (v.offer_index, analyses.contains_key(&v.id)) {
-                if offers[oi].layout == OfferLayout::SplitSet && v.origin.as_deref() == Some("original") && matches!(v.role, Some(FileRole::Base | FileRole::Split(_))) {
+                if offers[oi].layout == OfferLayout::SplitSet
+                    && v.origin.as_deref() == Some("original")
+                    && matches!(v.role, Some(FileRole::Base | FileRole::Split(_)))
+                {
                     by_offer.entry(oi).or_default().push(v.id);
                 }
             }
         }
         for (oi, members) in by_offer {
-            let refs: Vec<(String, &ApkAnalysis)> = members.iter().map(|m| (report.variants[*m].file_name.clone().unwrap_or_default(), &analyses[m])).collect();
+            let refs: Vec<(String, &ApkAnalysis)> = members
+                .iter()
+                .map(|m| (report.variants[*m].file_name.clone().unwrap_or_default(), &analyses[m]))
+                .collect();
             let r = uad_apk::validate_split_set(&refs);
             let o = &offers[oi];
             report.split_sets.push(SplitSetEntry {
-                label: format!("{} v{}{}", o.provider, o.version_code, o.device_profile.as_ref().map(|p| format!(" ({p})")).unwrap_or_default()),
+                label: format!(
+                    "{} v{}{}",
+                    o.provider,
+                    o.version_code,
+                    o.device_profile.as_ref().map(|p| format!(" ({p})")).unwrap_or_default()
+                ),
                 provider: o.provider.clone(),
                 device_profile: o.device_profile.clone(),
                 offer_index: oi,
@@ -640,11 +710,20 @@ impl Engine {
     }
 
     async fn acquire_offers(&self, offer_ids: &[usize], offers: &[Offer], report: &mut JobReport) -> bool {
-        let targets: Vec<usize> = report.variants.iter().filter(|v| v.offer_index.is_some_and(|i| offer_ids.contains(&i)) && v.sha256.is_none()).map(|v| v.id).collect();
+        let targets: Vec<usize> = report
+            .variants
+            .iter()
+            .filter(|v| v.offer_index.is_some_and(|i| offer_ids.contains(&i)) && v.sha256.is_none())
+            .map(|v| v.id)
+            .collect();
         let jobs = targets.iter().map(|vid| {
             let v = &report.variants[*vid];
             let o = &offers[v.offer_index.unwrap()];
-            let f = o.files.iter().find(|f| Some(&f.file_name) == v.file_name.as_ref() && Some(&f.role) == v.role.as_ref()).cloned();
+            let f = o
+                .files
+                .iter()
+                .find(|f| Some(&f.file_name) == v.file_name.as_ref() && Some(&f.role) == v.role.as_ref())
+                .cloned();
             async move {
                 match f {
                     Some(f) => (*vid, self.downloader.fetch(&f.source, &f.expected, f.size).await),
@@ -663,7 +742,8 @@ impl Engine {
                     v.size = Some(f.size);
                     v.deduplicated = f.deduplicated;
                     if f.resumed_from > 0 {
-                        v.checks.push(Check::new("download", CheckStatus::Info, format!("resumed at byte {}", f.resumed_from)));
+                        v.checks
+                            .push(Check::new("download", CheckStatus::Info, format!("resumed at byte {}", f.resumed_from)));
                     }
                 }
                 Err(e) => {
@@ -685,7 +765,10 @@ impl Engine {
             }
         }
         let path = self.store.object_path(&digest);
-        let a = tokio::task::spawn_blocking(move || uad_apk::analyze(&path)).await.map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
+        let a = tokio::task::spawn_blocking(move || uad_apk::analyze(&path))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
         if a.sha256 != digest {
             return Err("stored object does not match its digest".into());
         }
@@ -697,10 +780,20 @@ impl Engine {
         let src = report.variants[bundle_vid].clone();
         let sha: Sha256Digest = src.sha256.clone().unwrap_or_default().parse()?;
         let work = self.cfg.tmp_dir().join(format!("bundletool-{job_id}-{bundle_vid}"));
-        let generated = self.bundletool.build_universal(&self.store.object_path(&sha), &work).await.map_err(|e| e.to_string())?;
+        let generated = self
+            .bundletool
+            .build_universal(&self.store.object_path(&sha), &work)
+            .await
+            .map_err(|e| e.to_string())?;
         let fetched = self
             .downloader
-            .fetch(&uad_core::FileSource::Local { path: generated.path.clone() }, &Default::default(), None)
+            .fetch(
+                &uad_core::FileSource::Local {
+                    path: generated.path.clone(),
+                },
+                &Default::default(),
+                None,
+            )
             .await
             .map_err(|e| e.to_string())?;
         let _ = tokio::fs::remove_dir_all(&work).await;
@@ -741,10 +834,18 @@ impl Engine {
                 Some(e) if e.sha256.is_some() || e.sha1.is_some() => checks.push(Check::new(
                     "source_digest",
                     CheckStatus::Pass,
-                    format!("matches digest declared by {}{}", o.provider, if e.sha256.is_some() { " (SHA-256)" } else { " (SHA-1)" }),
+                    format!(
+                        "matches digest declared by {}{}",
+                        o.provider,
+                        if e.sha256.is_some() { " (SHA-256)" } else { " (SHA-1)" }
+                    ),
                 )),
                 _ if generated => {}
-                _ => checks.push(Check::new("source_digest", CheckStatus::Info, "source declared no digest; SHA-256 computed locally")),
+                _ => checks.push(Check::new(
+                    "source_digest",
+                    CheckStatus::Info,
+                    "source declared no digest; SHA-256 computed locally",
+                )),
             }
         }
         checks.push(Check::new("sha256", CheckStatus::Info, a.sha256.to_hex()));
@@ -755,13 +856,25 @@ impl Engine {
                 checks.push(Check::new(
                     "signature",
                     if sig.verified { CheckStatus::Pass } else { CheckStatus::Fail },
-                    if sig.verified { "bundle JAR signature (upload key) verified".to_string() } else { sig.errors.join("; ") },
+                    if sig.verified {
+                        "bundle JAR signature (upload key) verified".to_string()
+                    } else {
+                        sig.errors.join("; ")
+                    },
                 ));
             } else {
-                checks.push(Check::new("signature", CheckStatus::Warn, "bundle is not signed; integrity rests on the source digest only"));
+                checks.push(Check::new(
+                    "signature",
+                    CheckStatus::Warn,
+                    "bundle is not signed; integrity rests on the source digest only",
+                ));
             }
         } else if sig.verified {
-            checks.push(Check::new("signature", CheckStatus::Pass, format!("valid APK signature ({})", sig.schemes_verified.join(", "))));
+            checks.push(Check::new(
+                "signature",
+                CheckStatus::Pass,
+                format!("valid APK signature ({})", sig.schemes_verified.join(", ")),
+            ));
         } else {
             checks.push(Check::new("signature", CheckStatus::Fail, sig.errors.join("; ")));
         }
@@ -772,18 +885,30 @@ impl Engine {
             checks.push(Check::new("signer", CheckStatus::Info, format!("{} — {}", c.sha256, c.subject)));
         }
         if sig.lineage.len() > 1 {
-            checks.push(Check::new("key_rotation", CheckStatus::Info, format!("signing key rotated; lineage of {} certificates verified", sig.lineage.len())));
+            checks.push(Check::new(
+                "key_rotation",
+                CheckStatus::Info,
+                format!("signing key rotated; lineage of {} certificates verified", sig.lineage.len()),
+            ));
         }
 
         // Identity of the package.
         if a.manifest.package != pkg {
-            checks.push(Check::new("package", CheckStatus::Fail, format!("file declares package {}, expected {pkg}", a.manifest.package)));
+            checks.push(Check::new(
+                "package",
+                CheckStatus::Fail,
+                format!("file declares package {}, expected {pkg}", a.manifest.package),
+            ));
         } else {
             checks.push(Check::new("package", CheckStatus::Pass, pkg.to_string()));
         }
         if let (Some(o), false) = (offer, generated) {
             if a.manifest.version_code != o.version_code {
-                checks.push(Check::new("version", CheckStatus::Fail, format!("file has versionCode {}, source announced {}", a.manifest.version_code, o.version_code)));
+                checks.push(Check::new(
+                    "version",
+                    CheckStatus::Fail,
+                    format!("file has versionCode {}, source announced {}", a.manifest.version_code, o.version_code),
+                ));
             } else {
                 checks.push(Check::new("version", CheckStatus::Pass, format!("versionCode {}", o.version_code)));
             }
@@ -796,13 +921,22 @@ impl Engine {
                 checks.push(Check::new(
                     "declared_signer",
                     CheckStatus::Pass,
-                    format!("signer matches {}{}", t.asserted_by, if t.authenticated { " (cryptographically authenticated)" } else { "" }),
+                    format!(
+                        "signer matches {}{}",
+                        t.asserted_by,
+                        if t.authenticated { " (cryptographically authenticated)" } else { "" }
+                    ),
                 ));
             } else {
                 checks.push(Check::new(
                     "declared_signer",
                     CheckStatus::Fail,
-                    format!("signer {:?} differs from the one declared by {}: {:?}", ids.iter().map(|d| d.to_hex()).collect::<Vec<_>>(), t.asserted_by, t.signer_cert_sha256),
+                    format!(
+                        "signer {:?} differs from the one declared by {}: {:?}",
+                        ids.iter().map(|d| d.to_hex()).collect::<Vec<_>>(),
+                        t.asserted_by,
+                        t.signer_cert_sha256
+                    ),
                 ));
             }
         }
@@ -816,18 +950,30 @@ impl Engine {
                     for idh in sig.signers.iter().map(|c| c.sha256.to_hex()) {
                         let _ = self.store.add_pin(pkg, &channel, &idh, job_id);
                     }
-                    checks.push(Check::new("signer_pin", CheckStatus::Info, format!("first time this signer is seen for {pkg} via {channel}: pinned")));
+                    checks.push(Check::new(
+                        "signer_pin",
+                        CheckStatus::Info,
+                        format!("first time this signer is seen for {pkg} via {channel}: pinned"),
+                    ));
                 }
                 Ok(pins) => {
                     if ids.iter().any(|i| pins.contains(i)) {
-                        checks.push(Check::new("signer_pin", CheckStatus::Pass, "same signer as previously pinned (or rotated from it)"));
+                        checks.push(Check::new(
+                            "signer_pin",
+                            CheckStatus::Pass,
+                            "same signer as previously pinned (or rotated from it)",
+                        ));
                         for idh in sig.signers.iter().map(|c| c.sha256.to_hex()) {
                             let _ = self.store.add_pin(pkg, &channel, &idh, job_id);
                         }
                     } else {
                         checks.push(Check::new(
                             "signer_pin",
-                            if self.cfg.strict_signer_pinning { CheckStatus::Fail } else { CheckStatus::Warn },
+                            if self.cfg.strict_signer_pinning {
+                                CheckStatus::Fail
+                            } else {
+                                CheckStatus::Warn
+                            },
                             format!("SIGNER CHANGED: pinned {pins:?}, now {ids:?}, without a verified rotation proof"),
                         ));
                     }
@@ -839,13 +985,25 @@ impl Engine {
         // Classification vs. what the source claimed.
         if let Some(o) = offer {
             if o.layout == OfferLayout::UniversalApk && !generated && !matches!(a.classification, VariantKind::UniversalApk) {
-                checks.push(Check::new("classification", CheckStatus::Warn, format!("source described it as universal; analysis: {:?}", a.classification)));
+                checks.push(Check::new(
+                    "classification",
+                    CheckStatus::Warn,
+                    format!("source described it as universal; analysis: {:?}", a.classification),
+                ));
             }
         }
         if generated {
-            checks.push(Check::new("origin", CheckStatus::Info, "generated from an app bundle and signed with the local build key; not an original distribution file"));
+            checks.push(Check::new(
+                "origin",
+                CheckStatus::Info,
+                "generated from an app bundle and signed with the local build key; not an original distribution file",
+            ));
         } else {
-            checks.push(Check::new("origin", CheckStatus::Info, "original bytes as delivered by the source (never modified or re-signed)"));
+            checks.push(Check::new(
+                "origin",
+                CheckStatus::Info,
+                "original bytes as delivered by the source (never modified or re-signed)",
+            ));
         }
         checks.push(Check::new(
             "malware",
@@ -875,7 +1033,11 @@ impl Engine {
             device_profile: v.device_profile.clone(),
             source: v.source.clone().unwrap_or_default(),
             derived_from: v.derived_from.clone(),
-            tool: if v.origin.as_deref() == Some("generated_from_aab") { v.source.clone() } else { None },
+            tool: if v.origin.as_deref() == Some("generated_from_aab") {
+                v.source.clone()
+            } else {
+                None
+            },
             verification: serde_json::json!({
                 "signature_verified": a.signature.verified,
                 "schemes": a.signature.schemes_verified,
@@ -892,9 +1054,24 @@ impl Engine {
 
 /// Chooses what to download. Returns (ordered alternatives for the preferred result, extras).
 pub fn plan(offers: &[Offer], opts: &JobOptions) -> (Vec<Vec<usize>>, Vec<usize>) {
-    let universal: Vec<usize> = offers.iter().enumerate().filter(|(_, o)| o.layout == OfferLayout::UniversalApk).map(|(i, _)| i).collect();
-    let bundles: Vec<usize> = offers.iter().enumerate().filter(|(_, o)| o.layout == OfferLayout::AppBundle).map(|(i, _)| i).collect();
-    let variants: Vec<usize> = offers.iter().enumerate().filter(|(_, o)| matches!(o.layout, OfferLayout::SplitSet | OfferLayout::AbiSpecificApk)).map(|(i, _)| i).collect();
+    let universal: Vec<usize> = offers
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| o.layout == OfferLayout::UniversalApk)
+        .map(|(i, _)| i)
+        .collect();
+    let bundles: Vec<usize> = offers
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| o.layout == OfferLayout::AppBundle)
+        .map(|(i, _)| i)
+        .collect();
+    let variants: Vec<usize> = offers
+        .iter()
+        .enumerate()
+        .filter(|(_, o)| matches!(o.layout, OfferLayout::SplitSet | OfferLayout::AbiSpecificApk))
+        .map(|(i, _)| i)
+        .collect();
     let rest = |chosen: &[usize]| -> Vec<usize> { (0..offers.len()).filter(|i| !chosen.contains(i)).collect() };
     if !universal.is_empty() {
         let alts = universal.iter().map(|i| vec![*i]).collect::<Vec<_>>();
@@ -924,19 +1101,37 @@ fn count(r: &JobReport) -> Counts {
 
 fn decide_outcome(r: &JobReport) -> (&'static str, String) {
     let ok = |v: &&VariantEntry| v.availability == Availability::Retrieved;
-    if r.variants.iter().filter(ok).any(|v| v.origin.as_deref() == Some("original") && v.kind == Some(VariantKind::UniversalApk)) {
+    if r.variants
+        .iter()
+        .filter(ok)
+        .any(|v| v.origin.as_deref() == Some("original") && v.kind == Some(VariantKind::UniversalApk))
+    {
         return ("universal_original", "Original universal APK retrieved and verified.".into());
     }
     if r.variants.iter().filter(ok).any(|v| v.kind == Some(VariantKind::GeneratedUniversalApk)) {
-        return ("universal_generated", "Universal APK generated from the app bundle with bundletool (signed with the local build key, not an original).".into());
+        return (
+            "universal_generated",
+            "Universal APK generated from the app bundle with bundletool (signed with the local build key, not an original).".into(),
+        );
     }
     let installable: Vec<&SplitSetEntry> = r
         .split_sets
         .iter()
-        .filter(|s| s.report.installable && s.members.iter().all(|m| r.variants.iter().any(|v| v.id == *m && v.availability == Availability::Retrieved)))
+        .filter(|s| {
+            s.report.installable
+                && s.members
+                    .iter()
+                    .all(|m| r.variants.iter().any(|v| v.id == *m && v.availability == Availability::Retrieved))
+        })
         .collect();
     if !installable.is_empty() {
-        return ("split_set", format!("No universal APK available; {} verified, installable split APK set(s) retrieved.", installable.len()));
+        return (
+            "split_set",
+            format!(
+                "No universal APK available; {} verified, installable split APK set(s) retrieved.",
+                installable.len()
+            ),
+        );
     }
     let n = r.variants.iter().filter(ok).count();
     if n > 0 {
@@ -974,15 +1169,29 @@ mod tests {
 
     #[test]
     fn planning_prefers_universal_then_bundle_then_variants() {
-        let o = vec![offer("play", OfferLayout::SplitSet), offer("fdroid", OfferLayout::UniversalApk), offer("local", OfferLayout::AppBundle)];
+        let o = vec![
+            offer("play", OfferLayout::SplitSet),
+            offer("fdroid", OfferLayout::UniversalApk),
+            offer("local", OfferLayout::AppBundle),
+        ];
         let (alts, extras) = plan(&o, &JobOptions::default());
         assert_eq!(alts, vec![vec![1]]);
         assert!(extras.is_empty());
-        let (_, extras) = plan(&o, &JobOptions { all_variants: true, ..Default::default() });
+        let (_, extras) = plan(
+            &o,
+            &JobOptions {
+                all_variants: true,
+                ..Default::default()
+            },
+        );
         assert_eq!(extras, vec![0, 2]);
         let o2 = vec![offer("play", OfferLayout::SplitSet), offer("local", OfferLayout::AppBundle)];
         assert_eq!(plan(&o2, &JobOptions::default()).0, vec![vec![1]]);
-        let o3 = vec![offer("play", OfferLayout::SplitSet), offer("play", OfferLayout::SplitSet), offer("fdroid", OfferLayout::AbiSpecificApk)];
+        let o3 = vec![
+            offer("play", OfferLayout::SplitSet),
+            offer("play", OfferLayout::SplitSet),
+            offer("fdroid", OfferLayout::AbiSpecificApk),
+        ];
         assert_eq!(plan(&o3, &JobOptions::default()).0, vec![vec![0, 1, 2]]);
     }
 }

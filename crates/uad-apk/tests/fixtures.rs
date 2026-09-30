@@ -113,7 +113,10 @@ fn schemes_detected() {
 
     let a = analyze(&fixtures().join("rsa_verity.apk")).unwrap();
     let v2 = a.signature.v2.as_ref().unwrap();
-    assert!(v2.signers[0].content_digests_verified.iter().any(|d| format!("{d:?}").contains("Verity")), "{v2:?}");
+    assert!(
+        v2.signers[0].content_digests_verified.iter().any(|d| format!("{d:?}").contains("Verity")),
+        "{v2:?}"
+    );
 }
 
 #[test]
@@ -148,8 +151,16 @@ fn manifest_and_classification() {
     let s = |f: &str| analyze(&fixtures().join("splits").join(f)).unwrap();
     assert_eq!(s("base-master.apk").classification, VariantKind::BaseApk);
     assert_eq!(s("base-master.apk").manifest.required_split_types, vec!["base__abi", "base__density"]);
-    assert!(matches!(s("base-arm64_v8a.apk").classification, VariantKind::ConfigSplit { dimension: SplitDimension::Abi(Abi::Arm64V8a), .. }));
-    assert!(matches!(s("base-xxhdpi.apk").classification, VariantKind::ConfigSplit { dimension: SplitDimension::Density(ref d), .. } if d == "xxhdpi"));
+    assert!(matches!(
+        s("base-arm64_v8a.apk").classification,
+        VariantKind::ConfigSplit {
+            dimension: SplitDimension::Abi(Abi::Arm64V8a),
+            ..
+        }
+    ));
+    assert!(
+        matches!(s("base-xxhdpi.apk").classification, VariantKind::ConfigSplit { dimension: SplitDimension::Density(ref d), .. } if d == "xxhdpi")
+    );
     assert!(matches!(s("base-es.apk").classification, VariantKind::ConfigSplit { dimension: SplitDimension::Language(ref l), .. } if l == "es"));
 }
 
@@ -172,10 +183,17 @@ fn app_bundle_is_analyzed() {
 fn split_set_validation() {
     let dir = fixtures().join("splits");
     let load = |f: &str| (f.to_string(), analyze(&dir.join(f)).unwrap());
-    let all: Vec<(String, ApkAnalysis)> = ["base-master.apk", "base-arm64_v8a.apk", "base-x86_64.apk", "base-xxhdpi.apk", "base-mdpi.apk", "base-es.apk"]
-        .iter()
-        .map(|f| load(f))
-        .collect();
+    let all: Vec<(String, ApkAnalysis)> = [
+        "base-master.apk",
+        "base-arm64_v8a.apk",
+        "base-x86_64.apk",
+        "base-xxhdpi.apk",
+        "base-mdpi.apk",
+        "base-es.apk",
+    ]
+    .iter()
+    .map(|f| load(f))
+    .collect();
     let refs: Vec<(String, &ApkAnalysis)> = all.iter().map(|(n, a)| (n.clone(), a)).collect();
     let r = validate_split_set(&refs);
     assert!(r.installable, "{:?}", r.errors);
@@ -183,11 +201,19 @@ fn split_set_validation() {
     assert!(r.languages.contains(&"es".to_string()));
 
     // A device-specific subset is still valid.
-    let subset: Vec<(String, &ApkAnalysis)> = refs.iter().filter(|(n, _)| ["base-master.apk", "base-arm64_v8a.apk", "base-xxhdpi.apk"].contains(&n.as_str())).cloned().collect();
+    let subset: Vec<(String, &ApkAnalysis)> = refs
+        .iter()
+        .filter(|(n, _)| ["base-master.apk", "base-arm64_v8a.apk", "base-xxhdpi.apk"].contains(&n.as_str()))
+        .cloned()
+        .collect();
     assert!(validate_split_set(&subset).installable);
 
     // Without a density split the base's requiredSplitTypes are unmet.
-    let no_density: Vec<(String, &ApkAnalysis)> = refs.iter().filter(|(n, _)| ["base-master.apk", "base-arm64_v8a.apk"].contains(&n.as_str())).cloned().collect();
+    let no_density: Vec<(String, &ApkAnalysis)> = refs
+        .iter()
+        .filter(|(n, _)| ["base-master.apk", "base-arm64_v8a.apk"].contains(&n.as_str()))
+        .cloned()
+        .collect();
     let r = validate_split_set(&no_density);
     assert!(!r.installable);
     assert_eq!(r.unmet_required_split_types, vec!["base__density"]);
@@ -222,7 +248,16 @@ fn apks_archive_roundtrip() {
         &out,
         "com.uad.fixture",
         42,
-        &[("base-master.apk".into(), base.as_path(), None, h1.to_hex(), s1), ("base-arm64_v8a.apk".into(), abi.as_path(), Some("config.arm64_v8a".into()), h2.to_hex(), s2)],
+        &[
+            ("base-master.apk".into(), base.as_path(), None, h1.to_hex(), s1),
+            (
+                "base-arm64_v8a.apk".into(),
+                abi.as_path(),
+                Some("config.arm64_v8a".into()),
+                h2.to_hex(),
+                s2,
+            ),
+        ],
     )
     .unwrap();
     let mut z = zip::ZipArchive::new(std::fs::File::open(&out).unwrap()).unwrap();
