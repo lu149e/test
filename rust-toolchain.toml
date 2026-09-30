@@ -1,0 +1,5 @@
+# Pinned for reproducible builds (CI, Docker and local). MSRV is declared in Cargo.toml.
+[toolchain]
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
