@@ -1,0 +1,5 @@
+/target
+/data
+*.part
+.env
+secrets.toml

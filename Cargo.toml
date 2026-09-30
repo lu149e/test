@@ -1,0 +1,66 @@
+[workspace]
+resolver = "2"
+members = ["crates/uad-core", "crates/uad-apk", "crates/uad-providers", "crates/uad-engine", "crates/uad-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "Apache-2.0"
+repository = "https://github.com/lu149e/test"
+
+[workspace.dependencies]
+uad-core = { path = "crates/uad-core" }
+uad-apk = { path = "crates/uad-apk" }
+uad-providers = { path = "crates/uad-providers" }
+uad-engine = { path = "crates/uad-engine" }
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "io-util", "process", "sync", "time", "signal"] }
+async-trait = "0.1"
+futures = "0.3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-native-roots", "stream", "json", "http2"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+url = "2"
+hex = "0.4"
+base64 = "0.22"
+bytes = "1"
+tempfile = "3"
+
+# Cryptography: RustCrypto "digest 0.10" generation, kept consistent on purpose.
+sha1 = "0.10"
+sha2 = "0.10"
+md-5 = "0.10"
+signature = "2"
+rsa = "0.9"
+p256 = { version = "0.13", features = ["ecdsa"] }
+p384 = { version = "0.13", features = ["ecdsa"] }
+p521 = { version = "0.13", features = ["ecdsa"] }
+ecdsa = { version = "0.16", features = ["verifying", "der"] }
+dsa = "0.6"
+der = { version = "0.7", features = ["std", "oid"] }
+spki = { version = "0.7", features = ["std"] }
+x509-cert = { version = "0.2", features = ["std"] }
+cms = { version = "0.2", features = ["std"] }
+pkcs8 = { version = "0.10", features = ["pem", "std"] }
+ed25519-dalek = { version = "2", features = ["rand_core", "pkcs8"] }
+chacha20poly1305 = "0.10"
+rand = "0.8"
+
+zip = { version = "2", default-features = false, features = ["deflate"] }
+prost = "0.13"
+rusqlite = { version = "0.32", features = ["bundled"] }
+axum = { version = "0.8", features = ["multipart"] }
+tower-http = { version = "0.6", features = ["trace", "limit"] }
+clap = { version = "4", features = ["derive", "env"] }
+toml = "0.8"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4

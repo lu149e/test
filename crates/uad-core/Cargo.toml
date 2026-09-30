@@ -1,0 +1,16 @@
+[package]
+name = "uad-core"
+description = "Domain model, provider contract and job state machine for the Universal APK Downloader"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+hex.workspace = true
+base64.workspace = true
+chrono.workspace = true
