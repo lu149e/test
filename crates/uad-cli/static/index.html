@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Universal APK Downloader</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
+  --accent: #1a73e8; --ok: #137333; --ok-bg: #e6f4ea; --warn: #8a5a00; --warn-bg: #fef7e0;
+  --bad: #b3261e; --bad-bg: #fce8e6; --info-bg: #eef2f7; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111418; --panel: #1a1e24; --text: #e6e8eb; --muted: #9aa4b0; --line: #2c323a;
+    --accent: #8ab4f8; --ok: #81c995; --ok-bg: #16301f; --warn: #fdd663; --warn-bg: #3a2f10;
+    --bad: #f28b82; --bad-bg: #3b1a18; --info-bg: #222831; }
+}
+* { box-sizing: border-box; }
+body { overflow-wrap: anywhere; margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+header { padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--panel); display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; }
+header small { color: var(--muted); }
+main { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 16px; padding: 16px 20px; max-width: 1500px; margin: 0 auto; }
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; } }
+main > section { min-width: 0; }
+h2, strong { overflow-wrap: anywhere; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.panel h2 { font-size: 15px; margin: 0 0 10px; }
+form { display: grid; gap: 8px; }
+input[type=text], input[type=number] { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+button.secondary { background: transparent; color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 60vh; overflow: auto; }
+.jobs li { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.jobs li.sel { border-color: var(--accent); }
+.jobs .pkg { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--info-bg); color: var(--muted); white-space: nowrap; }
+.b-completed, .b-retrieved, .b-pass { background: var(--ok-bg); color: var(--ok); }
+.b-partially_completed, .b-warn, .b-identified { background: var(--warn-bg); color: var(--warn); }
+.b-failed, .b-fail, .b-cancelled { background: var(--bad-bg); color: var(--bad); }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tablewrap { overflow-x: auto; }
+.outcome { padding: 10px 12px; border-radius: 8px; margin: 10px 0; }
+.checks { margin: 6px 0 0; padding: 0; list-style: none; font-size: 13px; display: grid; gap: 3px; }
+.checks li > * { min-width: 0; }
+.checks .badge { justify-self: start; }
+.checks li { display: grid; grid-template-columns: 130px 52px 1fr; gap: 6px; }
+@media (max-width: 600px) { .checks li { grid-template-columns: 1fr; } }
+a { color: var(--accent); }
+.err { color: var(--bad); }
+.legend { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Universal APK Downloader</h1>
+  <small id="health">…</small>
+</header>
+<main>
+  <section>
+    <div class="panel">
+      <h2>Nueva adquisición</h2>
+      <form id="f">
+        <input id="input" type="text" placeholder="https://play.google.com/store/apps/details?id=… o nombre de paquete" required autocomplete="off">
+        <details>
+          <summary>Opciones</summary>
+          <div style="display:grid;gap:8px;margin-top:8px">
+            <input id="vc" type="number" placeholder="versionCode concreto (opcional)">
+            <label class="chk"><input id="all" type="checkbox"> Descargar también todas las variantes</label>
+            <label class="chk"><input id="nobt" type="checkbox"> No generar APK universal desde AAB</label>
+            <div class="row" id="provs"></div>
+          </div>
+        </details>
+        <div class="row"><button type="submit">Obtener</button><span id="ferr" class="err"></span></div>
+      </form>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <h2>Importar APK / AAB / APKS</h2>
+      <form id="up">
+        <input id="file" type="file" accept=".apk,.aab,.apks,.xapk" required>
+        <div class="row"><button type="submit" class="secondary">Subir y verificar</button><span id="uerr" class="err"></span></div>
+      </form>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <h2>Trabajos</h2>
+      <ul class="jobs" id="jobs"></ul>
+    </div>
+  </section>
+  <section class="panel" id="detail"><p class="muted">Selecciona o crea un trabajo.</p></section>
+</main>
+<script>
+"use strict";
+let token = localStorage.getItem("uad_token") || "";
+let selected = null, timer = null;
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return e;
+}
+const badge = (t, cls) => el("span", { class: "badge b-" + (cls || t), text: t });
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers || {}, token ? { Authorization: "Bearer " + token } : {});
+  const r = await fetch("/api" + path, opts);
+  if (r.status === 401) {
+    token = prompt("Token de API") || "";
+    localStorage.setItem("uad_token", token);
+    return api(path, opts);
+  }
+  const body = r.headers.get("content-type")?.includes("json") ? await r.json() : null;
+  if (!r.ok) throw new Error(body?.error || r.statusText);
+  return body;
+}
+const dl = (path) => "/api" + path + (token ? "?token=" + encodeURIComponent(token) : "");
+const fmtSize = (n) => n == null ? "" : n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : (n / 1024).toFixed(0) + " KB";
+
+async function loadHealth() {
+  try { const h = await api("/health"); $("health").textContent = `v${h.version} · ${h.jobs} trabajos · ${h.artifacts} archivos (${fmtSize(h.stored_bytes)})`; } catch (e) { $("health").textContent = e.message; }
+}
+async function loadProviders() {
+  const ps = await api("/providers");
+  const box = $("provs"); box.replaceChildren();
+  for (const p of ps.filter(p => p.id !== "play_web")) {
+    const cb = el("input", { type: "checkbox", value: p.id });
+    if (!p.enabled) cb.disabled = true;
+    box.append(el("label", { class: "chk", title: p.status }, cb, p.name + (p.enabled ? "" : " (desactivado)")));
+  }
+}
+async function loadJobs() {
+  const jobs = await api("/jobs?limit=100");
+  const ul = $("jobs"); ul.replaceChildren();
+  for (const j of jobs) {
+    const li = el("li", { class: j.id === selected ? "sel" : "", onclick: () => select(j.id) },
+      el("div", { class: "row" }, badge(j.state), j.outcome ? badge(j.outcome, "info") : null),
+      el("div", { class: "pkg", text: j.title ? `${j.title} · ${j.package}` : (j.package || j.input) }),
+      el("div", { class: "muted", style: "font-size:12px", text: new Date(j.created_at).toLocaleString() }));
+    ul.append(li);
+  }
+}
+async function select(id) {
+  selected = id; clearTimeout(timer);
+  if (location.hash !== "#job=" + id) history.replaceState(null, "", "#job=" + id);
+  const j = await api("/jobs/" + id);
+  render(j);
+  loadJobs();
+  if (!["completed", "partially_completed", "failed", "cancelled"].includes(j.state)) timer = setTimeout(() => select(id), 1500);
+}
+function render(j) {
+  const d = $("detail"); d.replaceChildren();
+  const r = j.report || {};
+  const m = r.metadata || {};
+  const head = el("div", { class: "row" });
+  if (m.icon_url && /^https:\/\//.test(m.icon_url)) head.append(el("img", { src: m.icon_url, width: 48, height: 48, alt: "", style: "border-radius:10px", onerror: (e) => e.target.remove() }));
+  head.append(el("div", {}, el("h2", { style: "margin:0", text: m.title || j.package || j.input }),
+    el("div", { class: "muted mono", text: j.package || "" }),
+    el("div", { class: "muted", text: [m.developer, m.version_name && "v" + m.version_name].filter(Boolean).join(" · ") })));
+  d.append(head);
+  const acts = el("div", { class: "row", style: "margin-top:8px" }, badge(j.state));
+  if (["failed", "cancelled", "partially_completed", "completed"].includes(j.state)) acts.append(el("button", { class: "secondary", text: "Reintentar", onclick: async () => { await api(`/jobs/${j.id}/retry`, { method: "POST" }); select(j.id); } }));
+  else acts.append(el("button", { class: "secondary", text: "Cancelar", onclick: async () => { await api(`/jobs/${j.id}/cancel`, { method: "POST" }); select(j.id); } }));
+  if (r.play_url) acts.append(el("a", { href: r.play_url, target: "_blank", rel: "noopener noreferrer", text: "Ficha en Google Play" }));
+  d.append(acts);
+  if (j.error) d.append(el("p", { class: "err", text: j.error }));
+  if (r.outcome) {
+    const cls = r.outcome === "none" ? "b-fail" : r.outcome.startsWith("universal") ? "b-pass" : "b-warn";
+    d.append(el("div", { class: "outcome " + cls }, el("strong", { text: r.outcome }), " — ", r.outcome_description || ""));
+    const c = r.counts || {};
+    d.append(el("p", { class: "legend", text: `Variantes: ${c.known || 0} existentes conocidas · ${c.identified || 0} identificadas (no descargadas) · ${c.retrieved || 0} recuperadas y verificadas · ${c.failed || 0} fallidas` }));
+  }
+  // Retrieved files
+  const got = (r.variants || []).filter(v => v.sha256);
+  if (got.length) {
+    d.append(el("h3", { text: "Archivos obtenidos" }));
+    for (const v of got) {
+      const box = el("div", { class: "panel", style: "margin:8px 0" });
+      const title = el("div", { class: "row" }, badge(v.availability), el("strong", { class: "mono", text: v.file_name || "" }),
+        v.origin === "generated_from_aab" ? badge("GENERADO (no original)", "warn") : badge("original", "info"),
+        el("span", { class: "muted", text: `${v.kind ? v.kind.kind : ""} ${(v.abis || []).join(", ")} ${fmtSize(v.size)}` }));
+      if (v.verified) title.append(el("a", { href: dl("/artifacts/" + v.sha256), text: "Descargar" }), el("a", { href: dl(`/artifacts/${v.sha256}/provenance`), target: "_blank", text: "Procedencia" }));
+      box.append(title, el("div", { class: "mono muted", text: "SHA-256 " + v.sha256 }), el("div", { class: "muted", style: "font-size:13px", text: `${v.provider}${v.device_profile ? " · perfil " + v.device_profile : ""} · ${v.channel || ""}` }));
+      if (v.error) box.append(el("div", { class: "err", text: v.error }));
+      const ul = el("ul", { class: "checks" });
+      for (const c of v.checks || []) ul.append(el("li", {}, el("span", { class: "mono", text: c.name }), badge(c.status), el("span", { text: c.detail })));
+      box.append(ul);
+      d.append(box);
+    }
+  }
+  for (const [i, s] of (r.split_sets || []).entries()) {
+    const box = el("div", { class: "panel", style: "margin:8px 0" },
+      el("div", { class: "row" }, el("strong", { text: "Conjunto de splits: " + s.label }), badge(s.report.installable ? "instalable" : "incompleto", s.report.installable ? "pass" : "fail")),
+      el("div", { class: "muted", text: `ABIs: ${s.report.abis.join(", ") || "—"} · densidades: ${s.report.densities.join(", ") || "—"} · idiomas: ${s.report.languages.join(", ") || "—"}` }));
+    for (const e of s.report.errors) box.append(el("div", { class: "err", text: e }));
+    if (s.report.installable) box.append(el("a", { href: dl(`/jobs/${j.id}/sets/${i}/apks`), text: "Descargar .apks" }));
+    d.append(box);
+  }
+  // All variants (existing / identified / retrieved)
+  const rest = (r.variants || []).filter(v => !v.sha256);
+  if (rest.length) {
+    d.append(el("h3", { text: "Variantes identificadas o conocidas (no descargadas)" }));
+    const t = el("table", {}, el("tr", {}, ...["Estado", "Proveedor", "Versión", "Rol", "Descripción"].map(h => el("th", { text: h }))));
+    for (const v of rest) t.append(el("tr", {}, el("td", {}, badge(v.availability)), el("td", { text: v.provider }),
+      el("td", { text: [v.version_name, v.version_code].filter(x => x != null).join(" / ") }),
+      el("td", { text: v.role ? (v.role.name ? `${v.role.role} ${v.role.name}` : v.role.role) : "" }), el("td", { text: v.description || v.error || "" })));
+    d.append(el("div", { class: "tablewrap" }, t));
+  }
+  if ((r.providers || []).length) {
+    d.append(el("h3", { text: "Proveedores" }));
+    const t = el("table", {}, el("tr", {}, ...["Proveedor", "Resultado", "Detalle"].map(h => el("th", { text: h }))));
+    for (const p of r.providers) t.append(el("tr", {}, el("td", { text: p.name }), el("td", {}, badge(p.status, p.status === "offers" ? "pass" : "info")), el("td", { class: "muted", text: [p.message, ...(p.notes || [])].filter(Boolean).join(" · ") })));
+    d.append(el("div", { class: "tablewrap" }, t));
+  }
+  if ((r.notes || []).length) d.append(el("details", {}, el("summary", { text: "Notas" }), el("ul", {}, ...r.notes.map(n => el("li", { text: n })))));
+  const ev = el("details", {}, el("summary", { text: "Historial de estados" }));
+  const t = el("table", {}); for (const e of j.events || []) t.append(el("tr", {}, el("td", { class: "mono", text: e.at }), el("td", {}, badge(e.to_state)), el("td", { class: "muted", text: e.message || "" })));
+  ev.append(t); d.append(ev);
+}
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("ferr").textContent = "";
+  const providers = [...document.querySelectorAll("#provs input:checked")].map(c => c.value);
+  const vc = $("vc").value ? Number($("vc").value) : null;
+  try {
+    const r = await api("/jobs", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input: $("input").value, options: { version_code: vc, providers, all_variants: $("all").checked, build_universal_from_aab: !$("nobt").checked } }) });
+    select(r.id);
+  } catch (err) { $("ferr").textContent = err.message; }
+});
+$("up").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("uerr").textContent = "";
+  const fd = new FormData(); fd.append("file", $("file").files[0]);
+  try { const r = await api("/upload", { method: "POST", body: fd }); select(r.id); } catch (err) { $("uerr").textContent = err.message; }
+});
+loadHealth(); loadProviders().catch(() => {}); loadJobs().catch(e => $("jobs").replaceChildren(el("li", { class: "err", text: e.message })));
+if (location.hash.startsWith("#job=")) select(location.hash.slice(5)).catch(() => {});
+setInterval(() => { loadJobs().catch(() => {}); loadHealth(); }, 5000);
+</script>
+</body>
+</html>

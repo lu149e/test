@@ -103,10 +103,18 @@ pub fn analyze(path: &Path) -> Result<ApkAnalysis, AnalysisError> {
 
     let is_bundle = names.iter().any(|n| n == "BundleConfig.pb") && names.iter().any(|n| n == "base/manifest/AndroidManifest.xml");
     let (container, manifest_el) = if is_bundle {
-        let data = read_limited(zip.by_name("base/manifest/AndroidManifest.xml").map_err(|e| AnalysisError::Zip(e.to_string()))?, MAX_MANIFEST)?;
+        let data = read_limited(
+            zip.by_name("base/manifest/AndroidManifest.xml")
+                .map_err(|e| AnalysisError::Zip(e.to_string()))?,
+            MAX_MANIFEST,
+        )?;
         (Container::AppBundle, proto_xml::parse(&data).map_err(AnalysisError::Manifest)?)
     } else {
-        let data = read_limited(zip.by_name("AndroidManifest.xml").map_err(|e| AnalysisError::Manifest(format!("AndroidManifest.xml: {e}")))?, MAX_MANIFEST)?;
+        let data = read_limited(
+            zip.by_name("AndroidManifest.xml")
+                .map_err(|e| AnalysisError::Manifest(format!("AndroidManifest.xml: {e}")))?,
+            MAX_MANIFEST,
+        )?;
         (Container::Apk, axml::parse(&data).map_err(|e| AnalysisError::Manifest(e.to_string()))?)
     };
     let manifest = ApkManifest::from_element(&manifest_el).map_err(|e| AnalysisError::Manifest(e.to_string()))?;
@@ -136,7 +144,11 @@ pub fn analyze(path: &Path) -> Result<ApkAnalysis, AnalysisError> {
             let mdex = names.iter().any(|n| n.starts_with(&format!("{m}/dex/")) && n.ends_with(".dex"));
             has_dex |= mdex;
             abis.extend(mabis.iter().copied());
-            modules.push(ModuleInfo { name: m, native_abis: mabis.into_iter().collect(), has_dex: mdex });
+            modules.push(ModuleInfo {
+                name: m,
+                native_abis: mabis.into_iter().collect(),
+                has_dex: mdex,
+            });
         }
     } else {
         for n in &names {
@@ -171,7 +183,15 @@ pub fn analyze(path: &Path) -> Result<ApkAnalysis, AnalysisError> {
         VariantKind::UniversalApk
     };
 
-    let signature = sig::verify_with_layout(path, &mut f, &layout, VerifyPolicy { min_sdk: manifest.min_sdk, target_sdk: manifest.target_sdk })?;
+    let signature = sig::verify_with_layout(
+        path,
+        &mut f,
+        &layout,
+        VerifyPolicy {
+            min_sdk: manifest.min_sdk,
+            target_sdk: manifest.target_sdk,
+        },
+    )?;
     if manifest.debuggable {
         warnings.push("application is debuggable".into());
     }
@@ -195,10 +215,24 @@ pub fn analyze(path: &Path) -> Result<ApkAnalysis, AnalysisError> {
 pub fn peek_manifest(path: &Path) -> Result<(Container, ApkManifest), AnalysisError> {
     let mut zip = zip::ZipArchive::new(std::io::BufReader::new(File::open(path)?)).map_err(|e| AnalysisError::Zip(e.to_string()))?;
     if zip.by_name("BundleConfig.pb").is_ok() {
-        let data = read_limited(zip.by_name("base/manifest/AndroidManifest.xml").map_err(|e| AnalysisError::Zip(e.to_string()))?, MAX_MANIFEST)?;
+        let data = read_limited(
+            zip.by_name("base/manifest/AndroidManifest.xml")
+                .map_err(|e| AnalysisError::Zip(e.to_string()))?,
+            MAX_MANIFEST,
+        )?;
         let el = proto_xml::parse(&data).map_err(AnalysisError::Manifest)?;
-        return Ok((Container::AppBundle, ApkManifest::from_element(&el).map_err(|e| AnalysisError::Manifest(e.to_string()))?));
+        return Ok((
+            Container::AppBundle,
+            ApkManifest::from_element(&el).map_err(|e| AnalysisError::Manifest(e.to_string()))?,
+        ));
     }
-    let data = read_limited(zip.by_name("AndroidManifest.xml").map_err(|e| AnalysisError::Manifest(format!("AndroidManifest.xml: {e}")))?, MAX_MANIFEST)?;
-    Ok((Container::Apk, ApkManifest::parse_binary(&data).map_err(|e| AnalysisError::Manifest(e.to_string()))?))
+    let data = read_limited(
+        zip.by_name("AndroidManifest.xml")
+            .map_err(|e| AnalysisError::Manifest(format!("AndroidManifest.xml: {e}")))?,
+        MAX_MANIFEST,
+    )?;
+    Ok((
+        Container::Apk,
+        ApkManifest::parse_binary(&data).map_err(|e| AnalysisError::Manifest(e.to_string()))?,
+    ))
 }

@@ -64,7 +64,10 @@ impl JobState {
 
     /// No further automatic progress happens from these states.
     pub fn is_terminal(self) -> bool {
-        matches!(self, JobState::Completed | JobState::PartiallyCompleted | JobState::Failed | JobState::Cancelled)
+        matches!(
+            self,
+            JobState::Completed | JobState::PartiallyCompleted | JobState::Failed | JobState::Cancelled
+        )
     }
 
     /// States that were in flight when a process stopped; they are re-queued on restart.
@@ -161,7 +164,13 @@ fn default_true() -> bool {
 
 impl Default for JobOptions {
     fn default() -> Self {
-        Self { version_code: None, providers: vec![], abis: vec![], all_variants: false, build_universal_from_aab: true }
+        Self {
+            version_code: None,
+            providers: vec![],
+            abis: vec![],
+            all_variants: false,
+            build_universal_from_aab: true,
+        }
     }
 }
 
@@ -174,7 +183,14 @@ mod tests {
     #[test]
     fn happy_path() {
         let mut s = S::Queued;
-        for e in [E::Start, E::Resolved, E::OffersFound, E::Acquired, E::Processed, E::Verified(VerificationOutcome::All)] {
+        for e in [
+            E::Start,
+            E::Resolved,
+            E::OffersFound,
+            E::Acquired,
+            E::Processed,
+            E::Verified(VerificationOutcome::All),
+        ] {
             s = s.next(e).unwrap();
         }
         assert_eq!(s, S::Completed);
@@ -198,7 +214,10 @@ mod tests {
         assert_eq!(S::Failed.next(E::Retry).unwrap(), S::Queued);
         assert_eq!(S::Acquiring.next(E::Retry).unwrap(), S::Queued);
         assert!(S::Completed.next(E::Retry).is_err());
-        assert_eq!(S::Verifying.next(E::Verified(VerificationOutcome::Partial)).unwrap(), S::PartiallyCompleted);
+        assert_eq!(
+            S::Verifying.next(E::Verified(VerificationOutcome::Partial)).unwrap(),
+            S::PartiallyCompleted
+        );
         assert_eq!(S::Verifying.next(E::Verified(VerificationOutcome::None)).unwrap(), S::Failed);
     }
 

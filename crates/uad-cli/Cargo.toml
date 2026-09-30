@@ -1,5 +1,6 @@
 [package]
 name = "uad-cli"
+description = "Universal APK Downloader: command-line interface and web server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,4 +9,31 @@ license.workspace = true
 name = "uad"
 path = "src/main.rs"
 
+[features]
+default = ["emulator"]
+emulator = ["uad-engine/emulator"]
+
 [dependencies]
+uad-core.workspace = true
+uad-apk.workspace = true
+uad-engine.workspace = true
+uad-providers.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+futures.workspace = true
+rpassword.workspace = true
+hex.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["multipart"] }
+tempfile.workspace = true

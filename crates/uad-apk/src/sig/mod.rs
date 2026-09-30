@@ -175,7 +175,9 @@ pub fn verify_with_layout(path: &Path, f: &mut File, layout: &ZipLayout, policy:
             _ => false,
         };
         if missing {
-            rep.errors.push(format!("v1 signature declares APK Signature Scheme v{id} but that block is missing (stripped)"));
+            rep.errors.push(format!(
+                "v1 signature declares APK Signature Scheme v{id} but that block is missing (stripped)"
+            ));
         }
     }
     for attrs in &v2_attrs {
@@ -204,7 +206,11 @@ pub fn verify_with_layout(path: &Path, f: &mut File, layout: &ZipLayout, policy:
             }
         }
     }
-    let v2_certs: Vec<CertificateInfo> = rep.v2.iter().flat_map(|s| s.signers.iter().filter_map(|x| x.certificate.clone())).collect();
+    let v2_certs: Vec<CertificateInfo> = rep
+        .v2
+        .iter()
+        .flat_map(|s| s.signers.iter().filter_map(|x| x.certificate.clone()))
+        .collect();
     let v1_certs: Vec<CertificateInfo> = rep.v1.signers.iter().filter_map(|x| x.certificate.clone()).collect();
     for c in v2_certs.iter().chain(v1_certs.iter()) {
         add(c, &mut signers);
@@ -242,15 +248,21 @@ pub fn verify_with_layout(path: &Path, f: &mut File, layout: &ZipLayout, policy:
     // Platform policy (warnings).
     if let Some(min) = policy.min_sdk {
         if min < 24 && !rep.v1.present && any_present {
-            rep.warnings.push(format!("minSdk {min} < 24 but no v1 signature: will not install on Android < 7.0"));
+            rep.warnings
+                .push(format!("minSdk {min} < 24 but no v1 signature: will not install on Android < 7.0"));
         }
     }
     if let Some(t) = policy.target_sdk {
         if t >= 30 && rep.v2.is_none() && !v3_present && rep.v1.present {
-            rep.warnings.push(format!("targetSdk {t} requires APK Signature Scheme v2+ on Android 11+, only v1 present"));
+            rep.warnings
+                .push(format!("targetSdk {t} requires APK Signature Scheme v2+ on Android 11+, only v1 present"));
         }
     }
-    if rep.signers.iter().any(|c| c.public_key_bits.is_some_and(|b| c.public_key_algorithm == "RSA" && b < 2048)) {
+    if rep
+        .signers
+        .iter()
+        .any(|c| c.public_key_bits.is_some_and(|b| c.public_key_algorithm == "RSA" && b < 2048))
+    {
         rep.warnings.push("signer uses an RSA key shorter than 2048 bits".into());
     }
 

@@ -101,7 +101,12 @@ fn session_key(profile: &str) -> String {
 impl PlayProvider {
     pub fn new(cfg: PlayConfig, secrets: Arc<dyn SecretStore>) -> Self {
         let client = PlayClient::new(&cfg.locale, &cfg.timezone);
-        Self { cfg, client, secrets, lock: tokio::sync::Mutex::new(()) }
+        Self {
+            cfg,
+            client,
+            secrets,
+            lock: tokio::sync::Mutex::new(()),
+        }
     }
 
     pub fn client(&self) -> &PlayClient {
@@ -110,7 +115,10 @@ impl PlayProvider {
 
     /// Exchanges a one-time `oauth_token` for an AAS token and stores both email and token.
     pub async fn setup_account(&self, email: &str, oauth_token: &str) -> Result<(), ProviderError> {
-        let profile = load_profiles(&self.cfg)?.into_iter().next().ok_or_else(|| ProviderError::NotConfigured("no device profile".into()))?;
+        let profile = load_profiles(&self.cfg)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| ProviderError::NotConfigured("no device profile".into()))?;
         let aas = self.client.exchange_oauth_token(email, oauth_token, &profile).await?;
         self.secrets.put(SECRET_EMAIL, email).map_err(ProviderError::Other)?;
         self.secrets.put(SECRET_AAS, &aas).map_err(ProviderError::Other)?;
@@ -123,13 +131,19 @@ impl PlayProvider {
     fn credentials(&self) -> Result<(String, String), ProviderError> {
         match (self.secrets.get(SECRET_EMAIL), self.secrets.get(SECRET_AAS)) {
             (Some(e), Some(t)) if !e.is_empty() && !t.is_empty() => Ok((e, t)),
-            _ => Err(ProviderError::NotConfigured("Google account not configured (run `uad play-login`)".into())),
+            _ => Err(ProviderError::NotConfigured(
+                "Google account not configured (run `uad play-login`)".into(),
+            )),
         }
     }
 
     async fn session(&self, profile: &DeviceProfile, force_new: bool) -> Result<Session, ProviderError> {
         if !force_new {
-            if let Some(s) = self.secrets.get(&session_key(&profile.name)).and_then(|j| serde_json::from_str::<Session>(&j).ok()) {
+            if let Some(s) = self
+                .secrets
+                .get(&session_key(&profile.name))
+                .and_then(|j| serde_json::from_str::<Session>(&j).ok())
+            {
                 return Ok(s);
             }
         }
@@ -156,7 +170,10 @@ impl PlayProvider {
         };
         self.pause().await;
         let app = item.details.as_ref().and_then(|d| d.app_details.clone()).ok_or(ProviderError::NotFound)?;
-        let vc = req.version_code.or(app.version_code).ok_or_else(|| ProviderError::Protocol("details without version code".into()))?;
+        let vc = req
+            .version_code
+            .or(app.version_code)
+            .ok_or_else(|| ProviderError::Protocol("details without version code".into()))?;
         let paid = item.offer.first().and_then(|o| o.micros).unwrap_or(0) > 0;
         let dtok = if paid {
             None // never purchase; delivery succeeds only if the account already owns the app
@@ -165,10 +182,14 @@ impl PlayProvider {
             self.pause().await;
             t
         };
-        let data = self.client.delivery(profile, &session, pkg, vc, dtok.as_deref()).await.map_err(|e| match e {
-            ProviderError::Denied(m) if paid => ProviderError::Denied(format!("paid app not owned by the configured account: {m}")),
-            e => e,
-        })?;
+        let data = self
+            .client
+            .delivery(profile, &session, pkg, vc, dtok.as_deref())
+            .await
+            .map_err(|e| match e {
+                ProviderError::Denied(m) if paid => ProviderError::Denied(format!("paid app not owned by the configured account: {m}")),
+                e => e,
+            })?;
         self.pause().await;
         Ok((item.clone(), delivery_to_offer(pkg, vc, app.version_string.clone(), &data, profile, &app)))
     }
@@ -192,9 +213,17 @@ pub fn delivery_to_offer(
             .filter_map(|c| Some(format!("{}={}", c.name.as_ref()?, c.value.as_ref()?)))
             .collect::<Vec<_>>()
             .join("; ");
-        vec![Header { name: "Cookie".into(), value: v, sensitive: true }]
+        vec![Header {
+            name: "Cookie".into(),
+            value: v,
+            sensitive: true,
+        }]
     };
-    let src = |url: &str| FileSource::Http { url: url.to_string(), headers: cookies.clone(), url_is_sensitive: true };
+    let src = |url: &str| FileSource::Http {
+        url: url.to_string(),
+        headers: cookies.clone(),
+        url_is_sensitive: true,
+    };
     let digests = |sha256: Option<&String>, sha1: Option<&String>| ExpectedDigests {
         sha256: sha256.and_then(|s| Sha256Digest::parse_flexible(s)),
         sha1: sha1.and_then(|s| Sha1Digest::parse_flexible(s)),
@@ -202,7 +231,11 @@ pub fn delivery_to_offer(
     let has_splits = !data.split_delivery_data.is_empty();
     let mut files = vec![RemoteFile {
         role: if has_splits { FileRole::Base } else { FileRole::Standalone },
-        file_name: if has_splits { format!("{pkg}-{vc}-base.apk") } else { format!("{pkg}-{vc}.apk") },
+        file_name: if has_splits {
+            format!("{pkg}-{vc}-base.apk")
+        } else {
+            format!("{pkg}-{vc}.apk")
+        },
         source: src(data.download_url.as_deref().unwrap_or_default()),
         size: data.download_size.map(|s| s as u64),
         expected: digests(data.sha256.as_ref(), data.sha1.as_ref()),
@@ -239,7 +272,11 @@ pub fn delivery_to_offer(
             });
         }
     }
-    let signers: Vec<Sha256Digest> = app.certificate_set.iter().filter_map(|c| c.sha256.as_deref().and_then(Sha256Digest::parse_flexible)).collect();
+    let signers: Vec<Sha256Digest> = app
+        .certificate_set
+        .iter()
+        .filter_map(|c| c.sha256.as_deref().and_then(Sha256Digest::parse_flexible))
+        .collect();
     Offer {
         provider: "play".into(),
         package: uad_core::PackageName::new(pkg).expect("validated package"),
@@ -270,7 +307,10 @@ impl Provider for PlayProvider {
             enabled: self.cfg.enabled,
             requires_credentials: true,
             priority: 10,
-            description: format!("Google Play device protocol with the operator's account; profiles {:?}", self.cfg.device_profiles),
+            description: format!(
+                "Google Play device protocol with the operator's account; profiles {:?}",
+                self.cfg.device_profiles
+            ),
             status: if !self.cfg.enabled {
                 "Disabled in configuration.".into()
             } else if configured {
@@ -345,7 +385,6 @@ impl Provider for PlayProvider {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::proto::*;
@@ -358,7 +397,10 @@ mod tests {
             sha1: Some("qZk+NkcGgWq6PiVxeFDCbJzQ2J0=".into()),
             download_url: Some("https://play.googleapis.com/download/by-token/x?token=SECRET".into()),
             additional_file: vec![],
-            download_auth_cookie: vec![HttpCookie { name: Some("MarketDA".into()), value: Some("123".into()) }],
+            download_auth_cookie: vec![HttpCookie {
+                name: Some("MarketDA".into()),
+                value: Some("123".into()),
+            }],
             split_delivery_data: vec![SplitDeliveryData {
                 name: Some("config.arm64_v8a".into()),
                 download_size: Some(5),
@@ -369,7 +411,13 @@ mod tests {
             sha256: None,
             dex_metadata: None,
         };
-        let app = AppDetails { certificate_set: vec![CertificateSet { certificate_hash: None, sha256: Some("aa".repeat(32)) }], ..Default::default() };
+        let app = AppDetails {
+            certificate_set: vec![CertificateSet {
+                certificate_hash: None,
+                sha256: Some("aa".repeat(32)),
+            }],
+            ..Default::default()
+        };
         let p = DeviceProfile::builtin("arm64").unwrap();
         let o = delivery_to_offer("com.example.app", 7, Some("1.0".into()), &data, &p, &app);
         assert_eq!(o.layout, OfferLayout::SplitSet);
@@ -379,7 +427,9 @@ mod tests {
         assert_eq!(o.files[1].role, FileRole::Split("config.arm64_v8a".into()));
         assert!(o.files[1].expected.sha256.is_some());
         match &o.files[0].source {
-            FileSource::Http { headers, url_is_sensitive, .. } => {
+            FileSource::Http {
+                headers, url_is_sensitive, ..
+            } => {
                 assert!(url_is_sensitive);
                 assert!(headers[0].sensitive);
             }

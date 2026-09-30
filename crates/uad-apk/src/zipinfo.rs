@@ -122,7 +122,17 @@ impl ZipLayout {
 
         let signing_block = Self::read_signing_block(f, cd_offset)?;
         let (first_local_header_offset, entry_names) = Self::scan_central_directory(f, cd_offset, cd_size)?;
-        Ok(Self { file_size, cd_offset, cd_size, eocd_offset, eocd, entry_count, signing_block, first_local_header_offset, entry_names })
+        Ok(Self {
+            file_size,
+            cd_offset,
+            cd_size,
+            eocd_offset,
+            eocd,
+            entry_count,
+            signing_block,
+            first_local_header_offset,
+            entry_names,
+        })
     }
 
     fn read_signing_block(f: &mut File, cd_offset: u64) -> Result<Option<SigningBlock>, ZipLayoutError> {
@@ -134,7 +144,7 @@ impl ZipLayout {
             return Ok(None);
         }
         let size_in_footer = le64(&footer, 0);
-        if size_in_footer < 24 || size_in_footer > MAX_SIG_BLOCK {
+        if !(24..=MAX_SIG_BLOCK).contains(&size_in_footer) {
             return Err(ZipLayoutError::BadSigningBlock(format!("size {size_in_footer} out of range")));
         }
         let total = size_in_footer + 8;
@@ -182,7 +192,9 @@ impl ZipLayout {
             let comment_len = le16(&cd, p + 32) as usize;
             let lho = le32(&cd, p + 42) as u64;
             min = Some(min.map_or(lho, |m| m.min(lho)));
-            let name = cd.get(p + 46..p + 46 + name_len).ok_or_else(|| ZipLayoutError::Inconsistent("truncated central directory".into()))?;
+            let name = cd
+                .get(p + 46..p + 46 + name_len)
+                .ok_or_else(|| ZipLayoutError::Inconsistent("truncated central directory".into()))?;
             names.push(String::from_utf8_lossy(name).into_owned());
             p += 46 + name_len + extra_len + comment_len;
         }

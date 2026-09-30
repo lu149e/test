@@ -120,7 +120,11 @@ pub fn parse_input(raw: &str) -> Result<AppInput, InputError> {
         });
     }
 
-    let with_scheme = if raw.contains("://") { raw.to_string() } else { format!("https://{raw}") };
+    let with_scheme = if raw.contains("://") {
+        raw.to_string()
+    } else {
+        format!("https://{raw}")
+    };
     let url = Url::parse(&with_scheme).map_err(|_| InputError::UnsupportedLink(raw.into()))?;
     let q = |k: &str| url.query_pairs().find(|(key, _)| key == k).map(|(_, v)| v.into_owned());
 

@@ -13,7 +13,10 @@ pub struct PlayWebProvider {
 
 impl PlayWebProvider {
     pub fn new(enabled: bool) -> Self {
-        Self { client: http::client(), enabled }
+        Self {
+            client: http::client(),
+            enabled,
+        }
     }
 }
 
@@ -74,7 +77,11 @@ pub fn parse_page(html: &str) -> Option<PlayPage> {
                         source: "play_web".into(),
                     },
                     paid,
-                    price: price.map(|p| format!("{p} {}", offer.and_then(|o| o.currency.clone()).unwrap_or_default()).trim().to_string()),
+                    price: price.map(|p| {
+                        format!("{p} {}", offer.and_then(|o| o.currency.clone()).unwrap_or_default())
+                            .trim()
+                            .to_string()
+                    }),
                 });
             }
         }
@@ -107,10 +114,16 @@ impl Provider for PlayWebProvider {
         }
         let html = resp.text().await.map_err(http::map_err)?;
         let page = parse_page(&html).ok_or_else(|| ProviderError::Protocol("listing has no SoftwareApplication data".into()))?;
-        let mut d = Discovery { metadata: Some(page.metadata), ..Default::default() };
+        let mut d = Discovery {
+            metadata: Some(page.metadata),
+            ..Default::default()
+        };
         d.notes.push("Listed on Google Play".into());
         if page.paid == Some(true) {
-            d.notes.push(format!("Paid app ({}): only obtainable through an account that owns it; purchases are never automated.", page.price.unwrap_or_default()));
+            d.notes.push(format!(
+                "Paid app ({}): only obtainable through an account that owns it; purchases are never automated.",
+                page.price.unwrap_or_default()
+            ));
         }
         Ok(d)
     }

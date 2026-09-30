@@ -185,7 +185,11 @@ mod tests {
         assert!(!r.contains("SECRET"));
         assert!(!r.contains("pw"));
         assert!(r.starts_with("https://play.googleapis.com/download/by-token/x"));
-        let h = Header { name: "Cookie".into(), value: "SECRET".into(), sensitive: true };
+        let h = Header {
+            name: "Cookie".into(),
+            value: "SECRET".into(),
+            sensitive: true,
+        };
         assert!(!format!("{h:?}").contains("SECRET"));
     }
 }

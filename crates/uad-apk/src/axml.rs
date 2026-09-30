@@ -37,7 +37,10 @@ pub enum AttrValue {
     /// Resource reference `@0xPPTTEEEE` (not resolved: requires resources.arsc).
     Reference(u32),
     Float(f32),
-    Other { data_type: u8, data: u32 },
+    Other {
+        data_type: u8,
+        data: u32,
+    },
 }
 
 impl AttrValue {
@@ -104,10 +107,7 @@ impl Element {
         let id = known_attr_id(name);
         self.attributes
             .iter()
-            .find(|a| {
-                (a.name == name && a.namespace.as_deref() == Some(ANDROID_NS))
-                    || (id.is_some() && a.resource_id == id)
-            })
+            .find(|a| (a.name == name && a.namespace.as_deref() == Some(ANDROID_NS)) || (id.is_some() && a.resource_id == id))
             .map(|a| &a.value)
     }
 
@@ -308,12 +308,22 @@ pub fn parse(data: &[u8]) -> Result<Element, AxmlError> {
                             None => AttrValue::Other { data_type, data },
                         },
                     };
-                    attributes.push(Attribute { namespace: a_ns, name: a_name, resource_id, value });
+                    attributes.push(Attribute {
+                        namespace: a_ns,
+                        name: a_name,
+                        resource_id,
+                        value,
+                    });
                 }
                 if stack.len() >= MAX_DEPTH {
                     return Err(AxmlError::Malformed("element nesting too deep"));
                 }
-                stack.push(Element { namespace: ns, name, attributes, children: Vec::new() });
+                stack.push(Element {
+                    namespace: ns,
+                    name,
+                    attributes,
+                    children: Vec::new(),
+                });
             }
             RES_XML_END_ELEMENT_TYPE => {
                 let el = stack.pop().ok_or(AxmlError::Malformed("unbalanced end element"))?;

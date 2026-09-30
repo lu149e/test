@@ -18,16 +18,61 @@ pub struct DeviceProfile {
 const COMMON_FEATURES: &str = "android.hardware.audio.output,android.hardware.bluetooth,android.hardware.bluetooth_le,android.hardware.camera,android.hardware.camera.any,android.hardware.camera.autofocus,android.hardware.camera.flash,android.hardware.camera.front,android.hardware.faketouch,android.hardware.location,android.hardware.location.gps,android.hardware.location.network,android.hardware.microphone,android.hardware.nfc,android.hardware.opengles.aep,android.hardware.ram.normal,android.hardware.screen.landscape,android.hardware.screen.portrait,android.hardware.sensor.accelerometer,android.hardware.sensor.compass,android.hardware.sensor.gyroscope,android.hardware.sensor.light,android.hardware.sensor.proximity,android.hardware.telephony,android.hardware.telephony.gsm,android.hardware.touchscreen,android.hardware.touchscreen.multitouch,android.hardware.touchscreen.multitouch.distinct,android.hardware.touchscreen.multitouch.jazzhand,android.hardware.usb.accessory,android.hardware.usb.host,android.hardware.vulkan.compute,android.hardware.vulkan.level,android.hardware.vulkan.version,android.hardware.wifi,android.hardware.wifi.direct,android.software.app_widgets,android.software.autofill,android.software.backup,android.software.companion_device_setup,android.software.cts,android.software.device_admin,android.software.file_based_encryption,android.software.home_screen,android.software.input_methods,android.software.live_wallpaper,android.software.managed_users,android.software.midi,android.software.picture_in_picture,android.software.print,android.software.securely_removes_users,android.software.verified_boot,android.software.voice_recognizers,android.software.webview,com.google.android.feature.GOOGLE_BUILD,com.google.android.feature.GOOGLE_EXPERIENCE";
 const COMMON_LIBS: &str = "android.ext.shared,android.test.base,android.test.mock,android.test.runner,com.android.future.usb.accessory,com.android.location.provider,com.android.media.remotedisplay,com.android.mediadrm.signer,com.google.android.gms,com.google.android.maps,javax.obex,org.apache.http.legacy";
 const COMMON_GL: &str = "GL_EXT_color_buffer_float,GL_EXT_color_buffer_half_float,GL_EXT_copy_image,GL_EXT_debug_marker,GL_EXT_discard_framebuffer,GL_EXT_disjoint_timer_query,GL_EXT_geometry_shader,GL_EXT_gpu_shader5,GL_EXT_multisampled_render_to_texture,GL_EXT_primitive_bounding_box,GL_EXT_robustness,GL_EXT_sRGB,GL_EXT_shader_io_blocks,GL_EXT_tessellation_shader,GL_EXT_texture_border_clamp,GL_EXT_texture_buffer,GL_EXT_texture_cube_map_array,GL_EXT_texture_filter_anisotropic,GL_EXT_texture_format_BGRA8888,GL_EXT_texture_sRGB_decode,GL_KHR_debug,GL_KHR_texture_compression_astc_ldr,GL_OES_EGL_image,GL_OES_EGL_image_external,GL_OES_EGL_image_external_essl3,GL_OES_EGL_sync,GL_OES_compressed_ETC1_RGB8_texture,GL_OES_depth24,GL_OES_depth_texture,GL_OES_element_index_uint,GL_OES_packed_depth_stencil,GL_OES_rgb8_rgba8,GL_OES_standard_derivatives,GL_OES_texture_3D,GL_OES_texture_float,GL_OES_texture_half_float,GL_OES_texture_npot,GL_OES_vertex_array_object,GL_OES_vertex_half_float";
-const COMMON_LOCALES: &str = "ar,de,de_DE,en,en_GB,en_US,es,es_ES,es_419,es_US,fr,fr_FR,hi,id,it,it_IT,ja,ja_JP,ko,nl,pl,pt,pt_BR,pt_PT,ru,ru_RU,tr,uk,vi,zh_CN,zh_TW";
+const COMMON_LOCALES: &str =
+    "ar,de,de_DE,en,en_GB,en_US,es,es_ES,es_419,es_US,fr,fr_FR,hi,id,it,it_IT,ja,ja_JP,ko,nl,pl,pt,pt_BR,pt_PT,ru,ru_RU,tr,uk,vi,zh_CN,zh_TW";
 
 /// Built-in generic profiles, one per primary ABI family. Values describe Android 14/11
 /// reference builds; they are not tied to any person's device.
 fn builtin(name: &str) -> Option<BTreeMap<String, String>> {
     let (abis, sdk, release, id, device, model, product, density, w, h) = match name {
-        "arm64" => ("arm64-v8a,armeabi-v7a,armeabi", "34", "14", "UQ1A.240205.004", "generic_arm64", "Generic ARM64 Phone", "generic_arm64", "420", "1080", "2400"),
-        "armv7" => ("armeabi-v7a,armeabi", "30", "11", "RQ3A.211001.001", "generic_armv7", "Generic ARMv7 Phone", "generic_armv7", "320", "720", "1520"),
-        "x86_64" => ("x86_64,x86,arm64-v8a,armeabi-v7a,armeabi", "34", "14", "UQ1A.240205.004", "generic_x86_64", "Generic x86_64 Device", "generic_x86_64", "440", "1080", "2340"),
-        "x86" => ("x86,armeabi-v7a,armeabi", "30", "11", "RQ3A.211001.001", "generic_x86", "Generic x86 Device", "generic_x86", "240", "800", "1280"),
+        "arm64" => (
+            "arm64-v8a,armeabi-v7a,armeabi",
+            "34",
+            "14",
+            "UQ1A.240205.004",
+            "generic_arm64",
+            "Generic ARM64 Phone",
+            "generic_arm64",
+            "420",
+            "1080",
+            "2400",
+        ),
+        "armv7" => (
+            "armeabi-v7a,armeabi",
+            "30",
+            "11",
+            "RQ3A.211001.001",
+            "generic_armv7",
+            "Generic ARMv7 Phone",
+            "generic_armv7",
+            "320",
+            "720",
+            "1520",
+        ),
+        "x86_64" => (
+            "x86_64,x86,arm64-v8a,armeabi-v7a,armeabi",
+            "34",
+            "14",
+            "UQ1A.240205.004",
+            "generic_x86_64",
+            "Generic x86_64 Device",
+            "generic_x86_64",
+            "440",
+            "1080",
+            "2340",
+        ),
+        "x86" => (
+            "x86,armeabi-v7a,armeabi",
+            "30",
+            "11",
+            "RQ3A.211001.001",
+            "generic_x86",
+            "Generic x86 Device",
+            "generic_x86",
+            "240",
+            "800",
+            "1280",
+        ),
         _ => return None,
     };
     let mut m = BTreeMap::new();
@@ -38,7 +83,10 @@ fn builtin(name: &str) -> Option<BTreeMap<String, String>> {
     set("Build.BOOTLOADER", "unknown");
     set("Build.BRAND", "generic");
     set("Build.DEVICE", device);
-    set("Build.FINGERPRINT", &format!("generic/{product}/{device}:{release}/{id}/1:user/release-keys"));
+    set(
+        "Build.FINGERPRINT",
+        &format!("generic/{product}/{device}:{release}/{id}/1:user/release-keys"),
+    );
     set("Build.HARDWARE", "generic");
     set("Build.ID", id);
     set("Build.MANUFACTURER", "Generic");
@@ -88,11 +136,17 @@ pub fn parse_properties(text: &str) -> Vec<DeviceProfile> {
             if let Some(p) = current.take() {
                 out.push(p);
             }
-            current = Some(DeviceProfile { name: l[1..l.len() - 1].trim().to_string(), props: BTreeMap::new() });
+            current = Some(DeviceProfile {
+                name: l[1..l.len() - 1].trim().to_string(),
+                props: BTreeMap::new(),
+            });
             continue;
         }
         if let Some((k, v)) = l.split_once('=') {
-            let p = current.get_or_insert_with(|| DeviceProfile { name: "default".into(), props: BTreeMap::new() });
+            let p = current.get_or_insert_with(|| DeviceProfile {
+                name: "default".into(),
+                props: BTreeMap::new(),
+            });
             p.props.insert(k.trim().to_string(), v.trim().replace("\\:", ":").replace("\\=", "="));
         }
     }
@@ -117,7 +171,10 @@ impl DeviceProfile {
         self.props.get(k).map(|v| v.eq_ignore_ascii_case("true"))
     }
     fn list(&self, k: &str) -> Vec<String> {
-        self.props.get(k).map(|v| v.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()).unwrap_or_default()
+        self.props
+            .get(k)
+            .map(|v| v.split(',').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect())
+            .unwrap_or_default()
     }
 
     pub fn missing_keys(&self) -> Vec<&'static str> {
@@ -208,7 +265,13 @@ impl DeviceProfile {
             low_ram_device: Some(0),
             total_memory_bytes: Some(8_354_971_648),
             max_num_of_cpu_cores: Some(8),
-            device_feature: features.into_iter().map(|n| DeviceFeature { name: Some(n), value: Some(0) }).collect(),
+            device_feature: features
+                .into_iter()
+                .map(|n| DeviceFeature {
+                    name: Some(n),
+                    value: Some(0),
+                })
+                .collect(),
         }
     }
 

@@ -53,7 +53,12 @@ impl PlayClient {
     }
 
     pub fn with_base(base: &str, locale: &str, timezone: &str) -> Self {
-        Self { http: http::client(), base: base.trim_end_matches('/').to_string(), locale: locale.into(), timezone: timezone.into() }
+        Self {
+            http: http::client(),
+            base: base.trim_end_matches('/').to_string(),
+            locale: locale.into(),
+            timezone: timezone.into(),
+        }
     }
 
     fn lang(&self) -> String {
@@ -75,11 +80,13 @@ impl PlayClient {
         let reply = parse_form_reply(&body);
         if !status.is_success() {
             let err = reply.get("error").cloned().unwrap_or_else(|| format!("HTTP {status}"));
-            return Err(if status.as_u16() == 403 || err.contains("BadAuthentication") || err.contains("NeedsBrowser") {
-                ProviderError::Auth(format!("Google rejected the credentials: {err}"))
-            } else {
-                http::status_error(status, &err)
-            });
+            return Err(
+                if status.as_u16() == 403 || err.contains("BadAuthentication") || err.contains("NeedsBrowser") {
+                    ProviderError::Auth(format!("Google rejected the credentials: {err}"))
+                } else {
+                    http::status_error(status, &err)
+                },
+            );
         }
         Ok(reply)
     }
@@ -103,7 +110,10 @@ impl PlayClient {
             ("droidguard_results", "null".into()),
         ];
         let reply = self.auth_request(form, &[("User-Agent", profile.auth_user_agent())]).await?;
-        reply.get("token").cloned().ok_or_else(|| ProviderError::Auth("no AAS token in reply".into()))
+        reply
+            .get("token")
+            .cloned()
+            .ok_or_else(|| ProviderError::Auth("no AAS token in reply".into()))
     }
 
     pub async fn checkin(&self, profile: &DeviceProfile) -> Result<AndroidCheckinResponse, ProviderError> {
@@ -158,8 +168,13 @@ impl PlayClient {
             ("system_partition", "1".into()),
             ("service", PLAY_SCOPE.into()),
         ];
-        let reply = self.auth_request(form, &[("User-Agent", profile.auth_user_agent()), ("device", format!("{gsf_id:x}"))]).await?;
-        reply.get("auth").cloned().ok_or_else(|| ProviderError::Auth("no Play auth token in reply".into()))
+        let reply = self
+            .auth_request(form, &[("User-Agent", profile.auth_user_agent()), ("device", format!("{gsf_id:x}"))])
+            .await?;
+        reply
+            .get("auth")
+            .cloned()
+            .ok_or_else(|| ProviderError::Auth("no Play auth token in reply".into()))
     }
 
     fn fdfe_headers(&self, profile: &DeviceProfile, s: &PartialSession) -> reqwest::header::HeaderMap {
@@ -206,7 +221,11 @@ impl PlayClient {
         query: &[(&str, String)],
         body: Option<(Vec<u8>, &str)>,
     ) -> Result<ResponseWrapper, ProviderError> {
-        let mut req = self.http.request(method, format!("{}/fdfe/{endpoint}", self.base)).headers(self.fdfe_headers(profile, s)).query(query);
+        let mut req = self
+            .http
+            .request(method, format!("{}/fdfe/{endpoint}", self.base))
+            .headers(self.fdfe_headers(profile, s))
+            .query(query);
         if let Some((b, ct)) = body {
             req = req.header("Content-Type", ct).body(b);
         } else if endpoint == "purchase" {
@@ -216,7 +235,10 @@ impl PlayClient {
         let status = resp.status();
         let bytes = resp.bytes().await.map_err(http::map_err)?;
         let wrapper = ResponseWrapper::decode(bytes.clone()).ok();
-        let server_msg = wrapper.as_ref().and_then(|w| w.commands.as_ref()).and_then(|c| c.display_error_message.clone());
+        let server_msg = wrapper
+            .as_ref()
+            .and_then(|w| w.commands.as_ref())
+            .and_then(|c| c.display_error_message.clone());
         if !status.is_success() {
             let msg = server_msg.unwrap_or_else(|| format!("HTTP {status} on {endpoint}"));
             return Err(classify_server_error(status.as_u16(), &msg));
@@ -234,7 +256,10 @@ impl PlayClient {
     pub async fn login(&self, email: &str, aas_token: &str, profile: &DeviceProfile) -> Result<Session, ProviderError> {
         let missing = profile.missing_keys();
         if !missing.is_empty() {
-            return Err(ProviderError::NotConfigured(format!("device profile {} lacks {:?}", profile.name, missing)));
+            return Err(ProviderError::NotConfigured(format!(
+                "device profile {} lacks {:?}",
+                profile.name, missing
+            )));
         }
         let c = self.checkin(profile).await?;
         let mut s = PartialSession {
@@ -244,14 +269,30 @@ impl PlayClient {
             auth_token: None,
             dfe_cookie: None,
         };
-        let upload = UploadDeviceConfigRequest { device_configuration: Some(profile.device_config()), manufacturer: None };
+        let upload = UploadDeviceConfigRequest {
+            device_configuration: Some(profile.device_config()),
+            manufacturer: None,
+        };
         let w = self
-            .fdfe(profile, &s, reqwest::Method::POST, "uploadDeviceConfig", &[], Some((upload.encode_to_vec(), "application/x-protobuf")))
+            .fdfe(
+                profile,
+                &s,
+                reqwest::Method::POST,
+                "uploadDeviceConfig",
+                &[],
+                Some((upload.encode_to_vec(), "application/x-protobuf")),
+            )
             .await?;
-        s.device_config_token = w.payload.and_then(|p| p.upload_device_config_response).and_then(|r| r.upload_device_config_token);
+        s.device_config_token = w
+            .payload
+            .and_then(|p| p.upload_device_config_response)
+            .and_then(|r| r.upload_device_config_token);
         s.auth_token = Some(self.request_auth_token(email, aas_token, profile, s.gsf_id).await?);
         let w = self.fdfe(profile, &s, reqwest::Method::GET, "toc", &[], None).await?;
-        let toc = w.payload.and_then(|p| p.toc_response).ok_or_else(|| ProviderError::Protocol("toc: empty response".into()))?;
+        let toc = w
+            .payload
+            .and_then(|p| p.toc_response)
+            .ok_or_else(|| ProviderError::Protocol("toc: empty response".into()))?;
         if toc.tos_token.is_some() && toc.cookie.is_none() {
             return Err(ProviderError::Denied(
                 "the Google account must accept the Google Play Terms of Service (sign in once on any Android device or emulator)".into(),
@@ -270,8 +311,13 @@ impl PlayClient {
     }
 
     pub async fn details(&self, profile: &DeviceProfile, s: &Session, pkg: &str) -> Result<Item, ProviderError> {
-        let w = self.fdfe(profile, &s.into(), reqwest::Method::GET, "details", &[("doc", pkg.to_string())], None).await?;
-        w.payload.and_then(|p| p.details_response).and_then(|d| d.item).ok_or(ProviderError::NotFound)
+        let w = self
+            .fdfe(profile, &s.into(), reqwest::Method::GET, "details", &[("doc", pkg.to_string())], None)
+            .await?;
+        w.payload
+            .and_then(|p| p.details_response)
+            .and_then(|d| d.item)
+            .ok_or(ProviderError::NotFound)
     }
 
     /// "Purchase" of a free item (offer type 1, price 0) returns a delivery token. Paid items are
@@ -282,13 +328,23 @@ impl PlayClient {
         Ok(w.payload.and_then(|p| p.buy_response).and_then(|b| b.encoded_delivery_token))
     }
 
-    pub async fn delivery(&self, profile: &DeviceProfile, s: &Session, pkg: &str, vc: i64, dtok: Option<&str>) -> Result<AndroidAppDeliveryData, ProviderError> {
+    pub async fn delivery(
+        &self,
+        profile: &DeviceProfile,
+        s: &Session,
+        pkg: &str,
+        vc: i64,
+        dtok: Option<&str>,
+    ) -> Result<AndroidAppDeliveryData, ProviderError> {
         let mut q = vec![("ot", "1".to_string()), ("doc", pkg.to_string()), ("vc", vc.to_string())];
         if let Some(t) = dtok {
             q.push(("dtok", t.to_string()));
         }
         let w = self.fdfe(profile, &s.into(), reqwest::Method::GET, "delivery", &q, None).await?;
-        let d = w.payload.and_then(|p| p.delivery_response).ok_or_else(|| ProviderError::Protocol("delivery: empty response".into()))?;
+        let d = w
+            .payload
+            .and_then(|p| p.delivery_response)
+            .ok_or_else(|| ProviderError::Protocol("delivery: empty response".into()))?;
         match d.app_delivery_data {
             Some(data) if data.download_url.is_some() => Ok(data),
             _ => Err(match d.status {
@@ -349,7 +405,10 @@ mod tests {
     #[test]
     fn error_classification() {
         assert!(matches!(classify_server_error(200, "Item not found."), ProviderError::NotFound));
-        assert!(matches!(classify_server_error(200, "Your device isn't compatible with this version."), ProviderError::Denied(_)));
+        assert!(matches!(
+            classify_server_error(200, "Your device isn't compatible with this version."),
+            ProviderError::Denied(_)
+        ));
         assert!(matches!(classify_server_error(503, "x"), ProviderError::Transient(_)));
     }
 }

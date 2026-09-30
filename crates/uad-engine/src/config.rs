@@ -200,7 +200,8 @@ mod tests {
         assert_eq!(c.max_concurrent_jobs, 2);
         assert!(c.providers.fdroid.enabled);
         assert!(!c.providers.play.enabled);
-        let c: Config = toml::from_str("data_dir = \"/srv/uad\"\n[providers.play]\nenabled = true\ndevice_profiles = [\"arm64\", \"x86_64\"]\n").unwrap();
+        let c: Config =
+            toml::from_str("data_dir = \"/srv/uad\"\n[providers.play]\nenabled = true\ndevice_profiles = [\"arm64\", \"x86_64\"]\n").unwrap();
         assert_eq!(c.data_dir, PathBuf::from("/srv/uad"));
         assert_eq!(c.providers.play.device_profiles.len(), 2);
     }

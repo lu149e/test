@@ -64,7 +64,10 @@ fn parse_key(s: &str) -> Option<[u8; 32]> {
 impl FileSecretStore {
     pub fn open(data_dir: &Path) -> Result<Self, String> {
         let (key, key_source) = match std::env::var("UAD_MASTER_KEY") {
-            Ok(v) => (parse_key(&v).ok_or("UAD_MASTER_KEY must be 32 bytes (hex or base64)")?, KeySource::Environment),
+            Ok(v) => (
+                parse_key(&v).ok_or("UAD_MASTER_KEY must be 32 bytes (hex or base64)")?,
+                KeySource::Environment,
+            ),
             Err(_) => {
                 let kp = data_dir.join("keys").join("master.key");
                 let key = match std::fs::read_to_string(&kp) {
@@ -90,14 +93,22 @@ impl FileSecretStore {
             }
             _ => BTreeMap::new(),
         };
-        Ok(Self { path, cipher, cache: Mutex::new(cache), key_source })
+        Ok(Self {
+            path,
+            cipher,
+            cache: Mutex::new(cache),
+            key_source,
+        })
     }
 
     fn persist(&self, map: &BTreeMap<String, String>) -> Result<(), String> {
         let plain = serde_json::to_vec(map).map_err(|e| e.to_string())?;
         let mut nonce = [0u8; 12];
         rand::rngs::OsRng.fill_bytes(&mut nonce);
-        let ct = self.cipher.encrypt(&Nonce::from(nonce), plain.as_ref()).map_err(|_| "encryption failed".to_string())?;
+        let ct = self
+            .cipher
+            .encrypt(&Nonce::from(nonce), plain.as_ref())
+            .map_err(|_| "encryption failed".to_string())?;
         let mut out = nonce.to_vec();
         out.extend_from_slice(&ct);
         write_private(&self.path, &out).map_err(|e| e.to_string())

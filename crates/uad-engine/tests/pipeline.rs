@@ -11,8 +11,10 @@ fn fixture(p: &str) -> PathBuf {
 }
 
 fn engine(dir: &Path) -> Arc<Engine> {
-    let mut cfg = Config::default();
-    cfg.data_dir = dir.to_path_buf();
+    let mut cfg = Config {
+        data_dir: dir.to_path_buf(),
+        ..Default::default()
+    };
     cfg.providers.play_web = false;
     cfg.providers.fdroid.enabled = false;
     cfg.bundletool.auto_download = false;
@@ -54,7 +56,10 @@ async fn local_universal_apk_end_to_end() {
     assert!(e.ledger.verify_chain().unwrap().valid);
     // Event log shows every state of the machine.
     let states: Vec<String> = e.job(&id).unwrap().events.iter().map(|ev| ev.to_state.clone()).collect();
-    assert_eq!(states, ["queued", "resolving", "discovering", "acquiring", "processing", "verifying", "completed"]);
+    assert_eq!(
+        states,
+        ["queued", "resolving", "discovering", "acquiring", "processing", "verifying", "completed"]
+    );
 }
 
 #[tokio::test]
@@ -63,7 +68,14 @@ async fn split_set_from_container_and_apks_export() {
     let e = engine(d.path());
     let f = std::fs::File::create(inbox(d.path()).join("set.apks")).unwrap();
     let mut z = zip::ZipWriter::new(f);
-    for n in ["base-master.apk", "base-arm64_v8a.apk", "base-x86_64.apk", "base-xxhdpi.apk", "base-mdpi.apk", "base-es.apk"] {
+    for n in [
+        "base-master.apk",
+        "base-arm64_v8a.apk",
+        "base-x86_64.apk",
+        "base-xxhdpi.apk",
+        "base-mdpi.apk",
+        "base-es.apk",
+    ] {
         z.start_file(n, zip::write::SimpleFileOptions::default()).unwrap();
         std::io::copy(&mut std::fs::File::open(fixture(&format!("splits/{n}"))).unwrap(), &mut z).unwrap();
     }
@@ -90,7 +102,10 @@ async fn tampered_apk_fails_and_is_quarantined() {
     let v = r.variants.iter().find(|v| v.sha256.is_some()).unwrap();
     assert_eq!(v.availability, Availability::Failed);
     assert!(v.checks.iter().any(|c| c.name == "signature" && c.detail.contains("digest mismatch")));
-    assert!(e.verified_artifact(v.sha256.as_ref().unwrap()).is_err(), "unverified bytes must not be served");
+    assert!(
+        e.verified_artifact(v.sha256.as_ref().unwrap()).is_err(),
+        "unverified bytes must not be served"
+    );
 }
 
 #[tokio::test]
@@ -129,7 +144,11 @@ async fn interrupted_job_is_recovered_on_start() {
         let e = engine(d.path());
         let id = e.create_job("com.uad.fixture", JobOptions::default()).unwrap();
         // Simulate a crash in the middle of acquisition.
-        for (a, b) in [(JobState::Queued, JobState::Resolving), (JobState::Resolving, JobState::Discovering), (JobState::Discovering, JobState::Acquiring)] {
+        for (a, b) in [
+            (JobState::Queued, JobState::Resolving),
+            (JobState::Resolving, JobState::Discovering),
+            (JobState::Discovering, JobState::Acquiring),
+        ] {
             e.store.transition(&id, a, b, None).unwrap();
         }
         id
