@@ -1,0 +1,121 @@
+== ec_v2only.apk
+DOES NOT VERIFY
+ERROR: Missing META-INF/MANIFEST.MF
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 882275e280180d50c0cc9c2667b07a497fe59b4b3ceabb207c498f09f8f802e7
+== generated_universal.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 882275e280180d50c0cc9c2667b07a497fe59b4b3ceabb207c498f09f8f802e7
+== rotated_v3.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): true
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: 882275e280180d50c0cc9c2667b07a497fe59b4b3ceabb207c498f09f8f802e7
+Signer (minSdkVersion=24, maxSdkVersion=32) certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== rsa3072_v3only.apk
+DOES NOT VERIFY
+ERROR: Missing META-INF/MANIFEST.MF
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: fdc0b8335b2e758919592bfae165913690bd5f2837982156fe0b991b5ad3d5d9
+== rsa_v1only.apk
+DOES NOT VERIFY
+ERROR: Target SDK version 34 requires a minimum of signature scheme v2; the APK is not signed with this or a later signature scheme
+-- min-sdk-24
+DOES NOT VERIFY
+ERROR: Target SDK version 34 requires a minimum of signature scheme v2; the APK is not signed with this or a later signature scheme
+== rsa_v1v2v3.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== rsa_verity.apk
+DOES NOT VERIFY
+ERROR: Missing META-INF/MANIFEST.MF
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== tampered_content.apk
+DOES NOT VERIFY
+ERROR: APK Signature Scheme v3 signer #1: APK integrity check failed. CHUNKED_SHA256 digest mismatch. Expected: <591c40f5d95634c7a857e490a2e27d85e155d934676feb10c2492c06860bc73c>, actual: <85fb34d016935513c7817af19b5ce187a98ec6f419eaae07d51e7dbf02cefd38>
+-- min-sdk-24
+DOES NOT VERIFY
+ERROR: APK Signature Scheme v3 signer #1: APK integrity check failed. CHUNKED_SHA256 digest mismatch. Expected: <591c40f5d95634c7a857e490a2e27d85e155d934676feb10c2492c06860bc73c>, actual: <85fb34d016935513c7817af19b5ce187a98ec6f419eaae07d51e7dbf02cefd38>
+== base-arm64_v8a.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== base-es.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== base-master.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== base-mdpi.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== base-x86_64.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
+== base-xxhdpi.apk
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+-- min-sdk-24
+Verifies
+Signer #1 certificate SHA-256 digest: 32959b8117a2820320a6254fde274c559e8b79268eb4d1cbdcb68c18fc57a2f8
