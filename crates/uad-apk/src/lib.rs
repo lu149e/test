@@ -16,7 +16,7 @@ pub mod sig;
 pub mod splits;
 pub mod zipinfo;
 
-pub use analysis::{analyze, file_digests, ApkAnalysis, Container};
+pub use analysis::{analyze, file_digests, peek_manifest, ApkAnalysis, Container};
 pub use manifest::ApkManifest;
 pub use sig::{verify_apk, SignatureReport, VerifyPolicy};
 pub use splits::{validate_split_set, SplitSetReport};

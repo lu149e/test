@@ -190,3 +190,15 @@ pub fn analyze(path: &Path) -> Result<ApkAnalysis, AnalysisError> {
         warnings,
     })
 }
+
+/// Reads only the manifest (no hashing or signature verification). For quick indexing.
+pub fn peek_manifest(path: &Path) -> Result<(Container, ApkManifest), AnalysisError> {
+    let mut zip = zip::ZipArchive::new(std::io::BufReader::new(File::open(path)?)).map_err(|e| AnalysisError::Zip(e.to_string()))?;
+    if zip.by_name("BundleConfig.pb").is_ok() {
+        let data = read_limited(zip.by_name("base/manifest/AndroidManifest.xml").map_err(|e| AnalysisError::Zip(e.to_string()))?, MAX_MANIFEST)?;
+        let el = proto_xml::parse(&data).map_err(AnalysisError::Manifest)?;
+        return Ok((Container::AppBundle, ApkManifest::from_element(&el).map_err(|e| AnalysisError::Manifest(e.to_string()))?));
+    }
+    let data = read_limited(zip.by_name("AndroidManifest.xml").map_err(|e| AnalysisError::Manifest(format!("AndroidManifest.xml: {e}")))?, MAX_MANIFEST)?;
+    Ok((Container::Apk, ApkManifest::parse_binary(&data).map_err(|e| AnalysisError::Manifest(e.to_string()))?))
+}
