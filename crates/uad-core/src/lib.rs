@@ -12,6 +12,7 @@ pub mod input;
 pub mod job;
 pub mod offer;
 pub mod provider;
+pub mod secrets;
 pub mod variant;
 
 pub use digest::{Sha1Digest, Sha256Digest};
@@ -22,4 +23,5 @@ pub use offer::{Header,
     OfferLayout, RemoteFile, TrustAnchor,
 };
 pub use provider::{Provider, ProviderError, ProviderInfo, ProviderKind};
+pub use secrets::{MemorySecretStore, SecretStore};
 pub use variant::{parse_split_name, Abi, Availability, FileRole, ParsedSplitName, SplitDimension, VariantKind};
