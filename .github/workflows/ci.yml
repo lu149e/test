@@ -34,7 +34,8 @@ jobs:
         run: |
           curl -sSL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
           echo "a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29  bundletool.jar" | sha256sum -c -
-          echo "UAD_TEST_BUNDLETOOL=$PWD/bundletool.jar" >> "$GITHUB_ENV"
+          # github.workspace is a native path on every OS (Git Bash $PWD is /d/... on Windows).
+          echo "UAD_TEST_BUNDLETOOL=${{ github.workspace }}/bundletool.jar" >> "$GITHUB_ENV"
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo test --workspace --all-features --locked
