@@ -40,6 +40,8 @@ pub struct Fetched {
 }
 
 pub struct Downloader {
+    /// One in-flight transfer per partial file (concurrent jobs may request the same URL).
+    inflight: std::sync::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Mutex<()>>>>,
     client: reqwest::Client,
     store: Arc<Store>,
     permits: Arc<Semaphore>,
@@ -54,6 +56,7 @@ fn key_for(url: &str) -> String {
 impl Downloader {
     pub fn new(store: Arc<Store>, concurrency: usize, retries: u32, max_bytes: u64) -> Self {
         Self {
+            inflight: Default::default(),
             client: uad_providers::http::client(),
             store,
             permits: Arc::new(Semaphore::new(concurrency.max(1))),
@@ -85,7 +88,25 @@ impl Downloader {
         match source {
             FileSource::Local { path } => self.import_local(path, expected).await,
             FileSource::Http { url, headers, .. } => {
-                let part = self.store.tmp_dir().join(format!("{}.part", key_for(url)));
+                let key = key_for(url);
+                let lock = self.inflight.lock().unwrap().entry(key.clone()).or_default().clone();
+                let _guard = lock.lock().await;
+                // Another job may have completed the same file meanwhile.
+                if let Some(sha) = &expected.sha256 {
+                    if self.store.artifact_known(sha).unwrap_or(false) {
+                        let path = self.store.object_path(sha);
+                        let (s256, s1, size) = hash_file(&path).await.map_err(|e| DownloadError::Other(e.to_string()))?;
+                        return Ok(Fetched {
+                            sha256: s256,
+                            sha1: s1,
+                            size,
+                            path,
+                            deduplicated: true,
+                            resumed_from: 0,
+                        });
+                    }
+                }
+                let part = self.store.tmp_dir().join(format!("{key}.part"));
                 let mut attempt = 0;
                 loop {
                     match self.http_once(url, headers, &part, size_hint).await {
