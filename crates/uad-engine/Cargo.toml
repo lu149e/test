@@ -1,7 +1,37 @@
 [package]
 name = "uad-engine"
+description = "Orchestration, storage, downloads, verification policy and provenance for the Universal APK Downloader"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = []
+emulator = ["uad-providers/emulator"]
+
 [dependencies]
+uad-core.workspace = true
+uad-apk.workspace = true
+uad-providers.workspace = true
+tokio.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+hex.workspace = true
+base64.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+rusqlite.workspace = true
+ed25519-dalek.workspace = true
+chacha20poly1305.workspace = true
+rand.workspace = true
+toml.workspace = true
+zip.workspace = true
+tempfile.workspace = true
+url.workspace = true
+

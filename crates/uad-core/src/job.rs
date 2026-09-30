@@ -136,7 +136,7 @@ impl JobState {
 }
 
 /// Options supplied with a job.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct JobOptions {
     /// Specific version code; `None` = latest.
     #[serde(default)]
@@ -157,6 +157,12 @@ pub struct JobOptions {
 
 fn default_true() -> bool {
     true
+}
+
+impl Default for JobOptions {
+    fn default() -> Self {
+        Self { version_code: None, providers: vec![], abis: vec![], all_variants: false, build_universal_from_aab: true }
+    }
 }
 
 #[cfg(test)]
@@ -207,6 +213,7 @@ mod tests {
     fn options_defaults() {
         let o: JobOptions = serde_json::from_str("{}").unwrap();
         assert!(o.build_universal_from_aab);
+        assert_eq!(o, JobOptions::default());
         assert!(o.version_code.is_none());
     }
 }
