@@ -1,0 +1,12 @@
+# Configuration used inside the container image.
+data_dir = "/var/lib/uad"
+listen = "0.0.0.0:8080"
+
+[providers]
+play_web = true
+
+[providers.fdroid]
+enabled = true
+
+[bundletool]
+java = "java"
