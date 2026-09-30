@@ -1,7 +1,38 @@
 [package]
 name = "uad-providers"
+description = "Acquisition providers: F-Droid, Google Play (public page, device protocol, Developer API), local import, emulator"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = []
+# Optional, decoupled emulator support (requires Android SDK command-line tools on the host).
+emulator = []
+
 [dependencies]
+uad-core.workspace = true
+uad-apk.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+url.workspace = true
+hex.workspace = true
+base64.workspace = true
+bytes.workspace = true
+sha2.workspace = true
+prost.workspace = true
+rsa.workspace = true
+tempfile.workspace = true
+zip.workspace = true
+rand.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
