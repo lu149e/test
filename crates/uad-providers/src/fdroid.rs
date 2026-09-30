@@ -213,7 +213,7 @@ impl CompactIndex {
                         added: v.added,
                     })
                     .collect();
-                versions.sort_by(|a, b| b.version_code.cmp(&a.version_code));
+                versions.sort_by_key(|v| std::cmp::Reverse(v.version_code));
                 let icon = p
                     .metadata
                     .icon
