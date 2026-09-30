@@ -348,6 +348,10 @@ impl Engine {
         .await
         .map_err(|e| EngineError::Other(e.to_string()))?
         .map_err(EngineError::Input)?;
+        // The package name comes from an untrusted file: validate before using it in a path.
+        let package = uad_core::PackageName::new(package)
+            .map_err(|e| EngineError::Input(e.to_string()))?
+            .to_string();
         let (sha, _, _) = crate::download::hash_file(tmp).await.map_err(|e| EngineError::Other(e.to_string()))?;
         let dest = self.cfg.inbox_dir().join(format!("{package}-{}.{ext}", &sha.to_hex()[..16]));
         if tokio::fs::rename(tmp, &dest).await.is_err() {
@@ -941,8 +945,10 @@ impl Engine {
             }
         }
 
-        // Trust-on-first-use pinning of the signer per (package, provider).
-        if !generated && !is_bundle && sig.verified && a.manifest.package == pkg {
+        // Trust-on-first-use pinning of the signer per (package, provider). Never pin (or
+        // extend pins) from a file that already failed another check.
+        let clean = !checks.iter().any(|c| c.status == CheckStatus::Fail);
+        if !generated && !is_bundle && sig.verified && a.manifest.package == pkg && clean {
             let channel = v.provider.clone();
             let ids: Vec<String> = sig.identity_digests().iter().map(|d| d.to_hex()).collect();
             match self.store.pins(pkg, &channel) {

@@ -187,3 +187,37 @@ async fn app_bundle_to_generated_universal_apk() {
     let prov = e.provenance(g.sha256.as_ref().unwrap()).unwrap();
     assert_eq!(prov[0]["record"]["origin"], "generated_from_aab");
 }
+
+#[tokio::test]
+async fn import_rejects_hostile_package_names_and_types() {
+    let d = tempfile::tempdir().unwrap();
+    let e = engine(d.path());
+    let tmp = d.path().join("tmp").join("up");
+    std::fs::write(&tmp, b"not an apk").unwrap();
+    assert!(e.import_file(&tmp, "x.apk").await.is_err());
+    assert!(e.import_file(&tmp, "x.exe").await.is_err());
+    std::fs::copy(fixture("rsa_v1v2v3.apk"), &tmp).unwrap();
+    assert_eq!(e.import_file(&tmp, "../../evil.apk").await.unwrap(), "com.uad.fixture");
+    let names: Vec<String> = std::fs::read_dir(inbox(d.path()))
+        .unwrap()
+        .map(|x| x.unwrap().file_name().to_string_lossy().into())
+        .collect();
+    assert!(
+        names.iter().all(|n| n.starts_with("com.uad.fixture-") && n.ends_with(".apk")),
+        "{names:?}"
+    );
+}
+
+#[tokio::test]
+async fn concurrent_jobs_for_the_same_app() {
+    let d = tempfile::tempdir().unwrap();
+    let e = engine(d.path());
+    std::fs::copy(fixture("rsa_v1v2v3.apk"), inbox(d.path()).join("a.apk")).unwrap();
+    let a = e.create_job("com.uad.fixture", JobOptions::default()).unwrap();
+    let b = e.create_job("com.uad.fixture", JobOptions::default()).unwrap();
+    tokio::join!(e.run_job(&a), e.run_job(&b));
+    for id in [a, b] {
+        assert_eq!(e.job(&id).unwrap().job.state, JobState::Completed);
+    }
+    assert_eq!(e.store.stats().unwrap().1, 1, "stored once");
+}
