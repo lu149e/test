@@ -1,0 +1,55 @@
+# Universal APK Downloader — example configuration. All keys are optional.
+# Secrets (tokens, service accounts, passwords) never go here: use `uad secrets set` or
+# UAD_SECRET_* environment variables.
+
+data_dir = "data"                 # Windows: e.g. 'C:\ProgramData\uad'
+listen = "127.0.0.1:8080"         # non-loopback addresses require UAD_API_TOKEN
+max_concurrent_jobs = 2
+max_concurrent_downloads = 4
+download_retries = 4
+discovery_timeout_secs = 900
+strict_signer_pinning = true      # a changed signer without rotation proof fails verification
+
+[bundletool]
+enabled = true
+# jar = "/opt/bundletool/bundletool-all-1.18.3.jar"   # otherwise downloaded and SHA-256 checked
+auto_download = true
+java = "java"
+# keystore = "/etc/uad/generated-apks.jks"   # default: dedicated local key created with keytool
+# key_alias = "release"
+# keystore_password_env = "UAD_GENERATED_KS_PASSWORD"
+
+[providers]
+play_web = true                   # public listing: metadata only
+
+[providers.fdroid]
+enabled = true
+repo_url = "https://f-droid.org/repo"
+fingerprint = "43238d512c1e5eb2d6569f4a3afbf5523418b82e0a3ed1552770abb9a9c9ccab"
+include_prereleases = false
+
+[providers.play]
+# Google Play device protocol with your own account (`uad play-login`). Off by default.
+enabled = false
+device_profiles = ["arm64", "armv7", "x86_64", "x86"]
+# profiles_file = "/etc/uad/devices.properties"   # e.g. exported from Aurora Store
+locale = "en_US"
+timezone = "UTC"
+request_delay_ms = 750
+
+[providers.play_dev]
+# Official Google Play Developer API (apps in your own developer account).
+# uad secrets set play_dev.service_account_json --file service-account.json
+enabled = false
+track = "production"
+
+[providers.local]
+enabled = true
+# inbox = "data/inbox"
+
+[providers.emulator]
+# Optional: extract APKs of apps installed on a local AVD. Needs Android SDK + KVM/WHPX.
+enabled = false
+# sdk_root = "/opt/android-sdk"
+# avd = "Pixel_API_34"
+# serial = "emulator-5554"

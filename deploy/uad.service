@@ -1,0 +1,27 @@
+# systemd unit (Linux). Install the binary to /usr/local/bin/uad and the config to /etc/uad/uad.toml.
+[Unit]
+Description=Universal APK Downloader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=uad
+Group=uad
+Environment=UAD_CONFIG=/etc/uad/uad.toml
+# Secrets: put UAD_MASTER_KEY / UAD_API_TOKEN in this root-owned 0600 file.
+EnvironmentFile=-/etc/uad/uad.env
+ExecStart=/usr/local/bin/uad serve
+Restart=on-failure
+StateDirectory=uad
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/uad
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=multi-user.target

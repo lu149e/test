@@ -1,0 +1,22 @@
+services:
+  uad:
+    build: ..
+    image: uad:latest
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Required when listening on a non-loopback address.
+      UAD_API_TOKEN: ${UAD_API_TOKEN:?set UAD_API_TOKEN}
+      # Recommended: master key for the encrypted secret store (32 bytes, hex).
+      UAD_MASTER_KEY: ${UAD_MASTER_KEY:-}
+    volumes:
+      - uad-data:/var/lib/uad
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    restart: unless-stopped
+volumes:
+  uad-data:
