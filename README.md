@@ -37,7 +37,25 @@ implementación propia.
 | Emulador local opcional (AVD + `adb pull`) | ⚠️ implementado; **no probado** (sin KVM ni SDK de emulador aquí) |
 | Windows | ⚠️ código multiplataforma y CI configurada para `windows-latest`; **no ejecutado aquí** |
 
-## Inicio rápido
+## Descargar el ejecutable (sin compilar)
+
+GitHub compila `uad` para Windows y Linux en cada cambio de `main`
+(workflow [`build`](.github/workflows/release.yml)):
+
+1. Ve a **Actions → build**, abre la ejecución más reciente en verde y, en **Artifacts**,
+   descarga `uad-main-windows-x86_64` (o `linux-x86_64`). Las versiones etiquetadas (`v*`)
+   se publican además en **Releases**.
+2. Descomprime y, en esa carpeta, ejecuta `.\uad.exe serve` y abre <http://127.0.0.1:8080>.
+
+Cada paquete incluye su SHA-256 y una atestación de procedencia de GitHub, verificable con
+`gh attestation verify uad.exe --repo lu149e/test`.
+
+> **Windows 11 con Smart App Control:** el `.exe` no está firmado con un certificado de
+> firma de código, así que Smart App Control puede bloquearlo igual que bloquea la
+> compilación local. En ese caso, usa WSL (ver [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md)) o
+> desactiva Smart App Control.
+
+## Compilar desde el código
 
 ```bash
 cargo build --release -p uad-cli          # Rust ≥ 1.88
