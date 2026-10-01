@@ -48,14 +48,42 @@ systemctl enable --now uad
 
 ## Windows
 
+El ejecutable precompilado se obtiene del workflow `build` (Actions → build → Artifacts →
+`uad-main-windows-x86_64`); se enlaza con el CRT estático, así que no necesita el
+Visual C++ Redistributable. Para compilarlo:
+
 ```powershell
 cargo build --release --locked -p uad-cli
 $env:UAD_MASTER_KEY = "<64 hex>"; .\target\release\uad.exe --data-dir C:\ProgramData\uad serve
 ```
 
 Para ejecutarlo como servicio puede usarse el Programador de tareas o NSSM con una cuenta de
-servicio dedicada; los permisos del directorio de datos deben restringirse a esa cuenta. (No
-se ha probado en Windows en el entorno de desarrollo; la CI incluye `windows-latest`.)
+servicio dedicada; los permisos del directorio de datos deben restringirse a esa cuenta. La
+suite completa de tests se ejecuta en `windows-latest` en la CI.
+
+### Smart App Control (Windows 11)
+
+Smart App Control bloquea los ejecutables sin firma de código que Microsoft no reconoce.
+Afecta a la compilación local (Cargo ejecuta scripts de build recién compilados; error
+`failed to run custom build command`) y puede afectar también al `.exe` descargado, que no
+está firmado. Alternativas:
+
+* **WSL** (mantiene la protección activa):
+  ```powershell
+  wsl --install -d Ubuntu
+  ```
+  En Ubuntu:
+  ```bash
+  sudo apt update && sudo apt install -y build-essential git openjdk-21-jre-headless
+  curl https://sh.rustup.rs -sSf | sh -s -- -y && . ~/.cargo/env
+  git clone https://github.com/lu149e/test.git uad && cd uad
+  cargo build --release -p uad-cli && ./target/release/uad serve
+  ```
+  La interfaz se abre desde el navegador de Windows en <http://127.0.0.1:8080>.
+* **Desactivar Smart App Control** (Seguridad de Windows → Control de aplicaciones y
+  navegador). En muchas versiones de Windows 11 no se puede reactivar sin reinstalar.
+* **Firmar el ejecutable** con un certificado de firma de código (fuera del alcance de este
+  repositorio).
 
 ## Operación
 
